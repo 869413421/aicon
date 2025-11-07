@@ -597,33 +597,33 @@ ws://localhost:8000/ws/notifications/{user_id}
 
 ### 消息格式
 
-```typescript
+```javascript
 // 进度更新消息
-interface ProgressMessage {
-  type: "progress";
-  task_id: string;
-  progress: number;
-  current_step: string;
-  message?: string;
-}
+const ProgressMessage = {
+  type: "progress",
+  task_id: "string",
+  progress: "number",
+  current_step: "string",
+  message: "string (optional)"
+};
 
 // 状态变更消息
-interface StatusMessage {
-  type: "status";
-  task_id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  error?: string;
-}
+const StatusMessage = {
+  type: "status",
+  task_id: "string",
+  status: ["pending", "processing", "completed", "failed"],
+  error: "string (optional)"
+};
 
 // 通知消息
-interface NotificationMessage {
-  type: "notification";
-  title: string;
-  message: string;
-  level: "info" | "warning" | "error" | "success";
-  timestamp: string;
-  action_url?: string;
-}
+const NotificationMessage = {
+  type: "notification",
+  title: "string",
+  message: "string",
+  level: ["info", "warning", "error", "success"],
+  timestamp: "string",
+  action_url: "string (optional)"
+};
 ```
 
 ## 通用响应格式
@@ -673,25 +673,27 @@ interface NotificationMessage {
 
 ## 分页参数
 
-```typescript
-interface PaginationParams {
-  page?: number;      // 页码，从1开始
-  limit?: number;     // 每页数量，默认20，最大100
-  sort?: string;      // 排序字段
-  order?: "asc" | "desc";  // 排序方向
-}
+```javascript
+// 分页参数
+const PaginationParams = {
+  page: "number (optional)",      // 页码，从1开始
+  limit: "number (optional)",     // 每页数量，默认20，最大100
+  sort: "string (optional)",      // 排序字段
+  order: ["asc", "desc"]          // 排序方向
+};
 
-interface PaginationResponse<T> {
-  data: T[];
+// 分页响应
+const PaginationResponse = {
+  data: "Array",
   pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    total_pages: number;
-    has_next: boolean;
-    has_prev: boolean;
-  };
-}
+    page: "number",
+    limit: "number",
+    total: "number",
+    total_pages: "number",
+    has_next: "boolean",
+    has_prev: "boolean"
+  }
+};
 ```
 
 ## 数据模型定义

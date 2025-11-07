@@ -250,7 +250,7 @@ yarn dev
     "ms-python.black-formatter",
     "ms-python.pylint",
     "Vue.volar",
-    "Vue.vscode-typescript-vue-plugin",
+    "Vue.vscode-vue-plugin",
     "bradlc.vscode-tailwindcss",
     "ms-vscode.vscode-json"
   ]
