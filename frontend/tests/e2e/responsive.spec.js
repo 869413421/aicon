@@ -101,7 +101,7 @@ test.describe('响应式认证页面测试', () => {
       })
     })
 
-    test.describe(`${device.name} - Profile Page`, () => {
+    test.describe(`${device.name} - Settings Page`, () => {
       test.beforeEach(async ({ page }) => {
         await setViewport(page, device.name.toLowerCase())
 
@@ -112,32 +112,58 @@ test.describe('响应式认证页面测试', () => {
         await page.click('button:has-text("登录")')
         await page.waitForURL(/\/dashboard/)
 
-        // 跳转到profile页面
-        await page.goto('/profile')
+        // 跳转到settings页面
+        await page.goto('/settings')
       })
 
-      test(`should display profile page correctly on ${device.name}`, async ({ page }) => {
+      test(`should display settings page correctly on ${device.name}`, async ({ page }) => {
         // 验证页面标题
-        await expect(page.locator('h1')).toContainText('个人资料')
+        await expect(page.locator('h1')).toContainText('系统设置')
 
-        // 验证用户信息区域
-        await expect(page.locator('.el-avatar')).toBeVisible()
-        await expect(page.locator('text=Profile Information')).toBeVisible()
-        await expect(page.locator('text=Change Password')).toBeVisible()
+        // 验证设置菜单项
+        await expect(page.locator('text=个人资料')).toBeVisible()
+        await expect(page.locator('text=账户安全')).toBeVisible()
+        await expect(page.locator('text=偏好设置')).toBeVisible()
+
+        // 验证默认选中个人资料标签
+        await expect(page.locator('.el-menu-item.is-active')).toContainText('个人资料')
 
         // 截图
-        await takeScreenshot(page, `profile-${device.name.toLowerCase()}`)
+        await takeScreenshot(page, `settings-${device.name.toLowerCase()}`)
       })
 
-      test(`should handle profile forms on ${device.name}`, async ({ page }) => {
-        // 测试信息更新表单
-        await page.fill('input[placeholder="Enter display name"]', 'Updated Name')
+      test(`should handle settings tabs on ${device.name}`, async ({ page }) => {
+        // 点击账户安全标签
+        await page.click('text=账户安全')
+        await expect(page.locator('text=修改密码')).toBeVisible()
+        await expect(page.locator('button:has-text("修改密码")')).toBeVisible()
+
+        // 点击偏好设置标签
+        await page.click('text=偏好设置')
+        await expect(page.locator('text=主题模式')).toBeVisible()
+        await expect(page.locator('text=语言')).toBeVisible()
+
+        // 截图：设置标签切换
+        await takeScreenshot(page, `settings-tabs-${device.name.toLowerCase()}`)
+      })
+
+      test(`should handle profile form on ${device.name}`, async ({ page }) => {
+        // 确保在个人资料标签页
+        await page.click('text=个人资料')
+
+        // 测试个人资料表单
+        await expect(page.locator('input[placeholder="请输入显示名称"]')).toBeVisible()
+        await expect(page.locator('input[placeholder="请输入头像URL"]')).toBeVisible()
+        await expect(page.locator('input[placeholder="请输入个人简介"]')).toBeVisible()
+
+        // 填写表单
+        await page.fill('input[placeholder="请输入显示名称"]', '测试用户更新')
 
         // 验证输入成功
-        await expect(page.locator('input[placeholder="Enter display name"]')).toHaveValue('Updated Name')
+        await expect(page.locator('input[placeholder="请输入显示名称"]')).toHaveValue('测试用户更新')
 
-        // 截图：profile表单交互
-        await takeScreenshot(page, `profile-form-${device.name.toLowerCase()}`)
+        // 截图：个人资料表单交互
+        await takeScreenshot(page, `settings-profile-form-${device.name.toLowerCase()}`)
       })
     })
 
@@ -154,8 +180,9 @@ test.describe('响应式认证页面测试', () => {
           }
         }
 
-        // 验证导航链接
-        await expect(page.locator('text=Dashboard')).toBeVisible()
+        // 验证导航链接 - 检查实际存在的中文内容
+        const dashboardTitle = page.locator('text=内容创作工作台')
+        await expect(dashboardTitle).toBeVisible()
 
         // 截图：导航
         await takeScreenshot(page, `navigation-${device.name.toLowerCase()}`)
@@ -197,7 +224,7 @@ test.describe('响应式认证页面测试', () => {
       const keyFlows = [
         { name: 'Login', url: '/login', selector: 'input[placeholder="请输入用户名"]' },
         { name: 'Register', url: '/register', selector: 'input[placeholder="请输入用户名"]' },
-        { name: 'Dashboard', url: '/dashboard', selector: 'text=仪表板' }
+        { name: 'Dashboard', url: '/dashboard', selector: 'text=内容创作工作台' }
       ]
 
       for (const device of devices) {

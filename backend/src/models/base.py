@@ -3,10 +3,10 @@
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import Column, DateTime, String
+from sqlalchemy import Column, DateTime, String, func
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -14,8 +14,8 @@ Base = declarative_base()
 
 class TimestampMixin:
     """时间戳混入类"""
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False, comment="创建时间")
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False, comment="更新时间")
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, comment="创建时间")
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False, comment="更新时间")
 
 
 class UUIDMixin:

@@ -7,7 +7,7 @@ name = "aicg-platform-backend"
 version = "1.0.0"
 description = "AICG内容分发平台 - 后端服务"
 authors = [
-    {name = "AICG Platform Team", email = "team@aicg-platform.com"},
+    { name = "AICG Platform Team", email = "team@aicg-platform.com" },
 ]
 dependencies = [
     "fastapi>=0.104.0",
@@ -48,7 +48,7 @@ dependencies = [
 ]
 requires-python = ">=3.11"
 readme = "README.md"
-license = {text = "MIT"}
+license = { text = "MIT" }
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

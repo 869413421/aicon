@@ -35,18 +35,24 @@ api.interceptors.response.use(
     return response.data
   },
   (error) => {
-    const { response } = error
+    const { response, config } = error
 
     if (response) {
       const { status, data } = response
 
       switch (status) {
         case 401:
-          // 未授权，清除登录状态并跳转到登录页
-          const authStore = useAuthStore()
-          authStore.logout()
-          router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
-          ElMessage.error('登录已过期，请重新登录')
+          // 检查是否是登录接口，如果是登录接口则显示具体的错误信息
+          if (config.url && config.url.includes('/auth/login')) {
+            // 登录失败，显示服务器返回的具体错误信息
+            ElMessage.error(data.detail || '用户名或密码错误')
+          } else {
+            // 其他接口的401错误，表示登录已过期
+            const authStore = useAuthStore()
+            authStore.logout()
+            router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
+            ElMessage.error('登录已过期，请重新登录')
+          }
           break
 
         case 403:
@@ -90,6 +96,22 @@ export const post = (url, data, config) => api.post(url, data, config)
 export const put = (url, data, config) => api.put(url, data, config)
 export const del = (url, config) => api.delete(url, config)
 export const patch = (url, data, config) => api.patch(url, data, config)
+
+// 文件上传方法
+export const upload = (url, file, config = {}) => {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const uploadConfig = {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    onUploadProgress: config.onUploadProgress,
+    ...config
+  }
+
+  return api.post(url, formData, uploadConfig)
+}
 
 // 导出axios实例
 export default api

@@ -36,7 +36,6 @@ class User(BaseModel):
     # api_configs = relationship("APIConfig", back_populates="user", cascade="all, delete-orphan")
     # publication_records = relationship("PublicationRecord", back_populates="user")
 
-    
     def get_preferences(self) -> dict:
         """获取用户偏好设置"""
         if self.preferences:
@@ -95,8 +94,8 @@ class User(BaseModel):
 
     def update_last_login(self):
         """更新最后登录时间"""
-        from datetime import datetime
-        self.last_login = datetime.utcnow()
+        from datetime import datetime, timezone
+        self.last_login = datetime.now(timezone.utc)
 
 
 __all__ = [

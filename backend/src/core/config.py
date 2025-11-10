@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # API配置
     API_V1_PREFIX: str = "/api/v1"
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001", "http://localhost:8080"]
     ALLOWED_HOSTS: List[str] = ["*"]
 
     # 数据库配置
@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 100 * 1024 * 1024  # 100MB
     ALLOWED_FILE_TYPES: List[str] = ["txt", "md", "docx", "epub"]
     UPLOAD_PATH: str = "uploads"
+
+    # 头像上传配置
+    AVATAR_BUCKET_NAME: str = "aicg-avatars"
+    MAX_AVATAR_SIZE: int = 5 * 1024 * 1024  # 5MB
+    ALLOWED_AVATAR_TYPES: List[str] = ["jpg", "jpeg", "png", "webp"]
+    AVATAR_DEFAULT_SIZE: tuple = (200, 200)  # 默认头像尺寸
 
     # 视频生成配置
     MAX_CONCURRENT_GENERATIONS: int = 10

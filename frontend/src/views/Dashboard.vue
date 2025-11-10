@@ -22,15 +22,36 @@
             开始创作
           </el-button>
         </div>
-        <div class="user-info">
-          <el-avatar :size="36" :src="authStore.user?.avatar_url" class="user-avatar">
-            <el-icon><User /></el-icon>
-          </el-avatar>
-          <div class="user-details">
-            <span class="username">{{ authStore.user?.display_name || authStore.user?.username }}</span>
-            <span class="user-status">在线</span>
+        <el-dropdown @command="handleUserAction" trigger="click" class="user-dropdown">
+          <div class="user-info">
+            <el-avatar :size="36" :src="authStore.user?.avatar_url" class="user-avatar">
+              <el-icon><User /></el-icon>
+            </el-avatar>
+            <div class="user-details">
+              <span class="username">{{ authStore.user?.display_name || authStore.user?.username }}</span>
+              <span class="user-status">在线</span>
+            </div>
+            <el-icon class="expand-icon">
+              <ArrowDown />
+            </el-icon>
           </div>
-        </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="profile">
+                <el-icon><User /></el-icon>
+                <span>个人资料</span>
+              </el-dropdown-item>
+              <el-dropdown-item command="settings">
+                <el-icon><Setting /></el-icon>
+                <span>系统设置</span>
+              </el-dropdown-item>
+              <el-dropdown-item divided command="logout">
+                <el-icon><SwitchButton /></el-icon>
+                <span>退出登录</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </div>
 
@@ -217,10 +238,52 @@ import {
   ArrowRight,
   Plus,
   Clock,
-  VideoCamera
+  VideoCamera,
+  ArrowDown,
+  SwitchButton
 } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
+const router = useRouter()
+
+// 处理用户操作
+const handleUserAction = (command) => {
+  switch (command) {
+    case 'profile':
+      router.push('/settings')
+      break
+    case 'settings':
+      router.push('/settings')
+      break
+    case 'logout':
+      handleLogout()
+      break
+  }
+}
+
+// 处理退出登录
+const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要退出登录吗？',
+      '退出确认',
+      {
+        confirmButtonText: '确定退出',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    await authStore.logout()
+    router.push('/login')
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('退出登录失败:', error)
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -245,21 +308,6 @@ const authStore = useAuthStore()
   overflow: hidden;
 }
 
-.dashboard-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--primary-color));
-  animation: shimmer 3s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-  0%, 100% { transform: translateX(-100%); }
-  50% { transform: translateX(100%); }
-}
 
 .welcome-section {
   display: flex;
@@ -334,13 +382,18 @@ const authStore = useAuthStore()
   box-shadow: var(--shadow-md);
 }
 
+.user-dropdown {
+  cursor: pointer;
+}
+
 .user-info {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-lg);
-  transition: background-color var(--transition-base);
+  transition: all var(--transition-base);
+  position: relative;
 }
 
 .user-info:hover {
@@ -374,6 +427,61 @@ const authStore = useAuthStore()
   content: '●';
   margin-right: 2px;
   font-size: 8px;
+}
+
+.expand-icon {
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: transform var(--transition-base);
+  margin-left: var(--space-xs);
+}
+
+.user-info:hover .expand-icon {
+  color: var(--primary-color);
+}
+
+/* 下拉菜单样式 */
+.el-dropdown-menu {
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xs);
+  min-width: 160px;
+}
+
+.el-dropdown-menu .el-dropdown-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  margin: var(--space-xs) 0;
+  transition: all var(--transition-base);
+  font-weight: 500;
+}
+
+.el-dropdown-menu .el-dropdown-menu__item:hover {
+  background: rgba(99, 102, 241, 0.05);
+  color: var(--primary-color);
+  transform: translateX(2px);
+}
+
+.el-dropdown-menu .el-dropdown-menu__item .el-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.el-dropdown-menu .el-dropdown-menu__item.is-divided {
+  border-top: 1px solid var(--border-primary);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  color: var(--danger-color);
+}
+
+.el-dropdown-menu .el-dropdown-menu__item.is-divided:hover {
+  background: rgba(239, 68, 68, 0.05);
+  color: var(--danger-color);
 }
 
 /* 快速操作入口 */

@@ -75,6 +75,29 @@ export const useAuthStore = defineStore('auth', () => {
     return await authService.deleteAccount(password)
   }
 
+  // 上传头像
+  const uploadAvatar = async (file) => {
+    const response = await authService.uploadAvatar(file)
+    if (response.user) {
+      user.value = response.user
+    }
+    return response
+  }
+
+  // 删除头像
+  const removeAvatar = async () => {
+    const response = await authService.deleteAvatar()
+    if (response.user) {
+      user.value = response.user
+    }
+    return response
+  }
+
+  // 获取头像信息
+  const getAvatarInfo = async () => {
+    return await authService.getAvatarInfo()
+  }
+
   // 登出
   const logout = () => {
     token.value = ''
@@ -95,6 +118,9 @@ export const useAuthStore = defineStore('auth', () => {
     getUserStats,
     resendVerificationEmail,
     deleteAccount,
+    uploadAvatar,
+    removeAvatar,
+    getAvatarInfo,
     logout
   }
 })

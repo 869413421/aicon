@@ -1,19 +1,22 @@
 """
 用户管理API端点
 处理用户信息更新、密码修改、偏好设置等功能
+Fixed password field mapping
 """
 
 from typing import Any, Dict, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel, Field, field_validator, field_serializer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_user_required
 from src.core.database import get_db
 from src.core.security import get_password_hash, verify_password
+from src.core.exceptions import ValidationError, FileUploadError
 from src.models.user import User
+from src.services.avatar import avatar_service
 
 router = APIRouter()
 
@@ -106,7 +109,23 @@ async def get_current_user_info(
     - **认证**: 需要Bearer Token
     - **权限**: 用户只能查看自己的信息
     """
-    return UserResponse.model_validate(current_user)
+    # 创建用户数据的副本，确保preferences是字典而不是字符串
+    user_data = {
+        "id": str(current_user.id),
+        "username": current_user.username,
+        "email": current_user.email,
+        "display_name": current_user.display_name,
+        "avatar_url": current_user.avatar_url,
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+        "preferences": current_user.get_preferences(),
+        "timezone": current_user.timezone,
+        "language": current_user.language,
+        "created_at": current_user.created_at,
+        "updated_at": current_user.updated_at,
+        "last_login": current_user.last_login
+    }
+    return UserResponse(**user_data)
 
 
 @router.put("/me", response_model=UserResponse, summary="更新用户信息")
@@ -127,12 +146,32 @@ async def update_current_user(
 
     for field, value in update_data.items():
         if hasattr(current_user, field):
-            setattr(current_user, field, value)
+            if field == 'preferences' and value is not None:
+                # 特殊处理preferences字段，需要使用用户模型的set_preferences方法
+                current_user.set_preferences(value)
+            else:
+                setattr(current_user, field, value)
 
     await db.commit()
     await db.refresh(current_user)
 
-    return UserResponse.model_validate(current_user)
+    # 返回更新后的用户信息，确保preferences是字典格式
+    user_data = {
+        "id": str(current_user.id),
+        "username": current_user.username,
+        "email": current_user.email,
+        "display_name": current_user.display_name,
+        "avatar_url": current_user.avatar_url,
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+        "preferences": current_user.get_preferences(),
+        "timezone": current_user.timezone,
+        "language": current_user.language,
+        "created_at": current_user.created_at,
+        "updated_at": current_user.updated_at,
+        "last_login": current_user.last_login
+    }
+    return UserResponse(**user_data)
 
 
 @router.put("/me/password", summary="修改用户密码")
@@ -149,21 +188,21 @@ async def change_user_password(
     - **验证**: 需要提供当前密码进行验证
     """
     # 验证当前密码
-    if not verify_password(password_request.current_password, current_user.hashed_password):
+    if not verify_password(password_request.current_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="当前密码不正确"
         )
 
     # 检查新密码是否与当前密码相同
-    if verify_password(password_request.new_password, current_user.hashed_password):
+    if verify_password(password_request.new_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="新密码不能与当前密码相同"
         )
 
     # 更新密码
-    current_user.hashed_password = get_password_hash(password_request.new_password)
+    current_user.password_hash = get_password_hash(password_request.new_password)
     await db.commit()
 
     return {"message": "密码修改成功"}
@@ -231,7 +270,7 @@ async def delete_user_account(
     - **警告**: 此操作不可逆，请谨慎操作
     """
     # 验证密码
-    if not verify_password(delete_request.password, current_user.hashed_password):
+    if not verify_password(delete_request.password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="密码不正确"
@@ -246,6 +285,159 @@ async def delete_user_account(
     await db.commit()
 
     return {"message": "账户已成功删除"}
+
+
+@router.post("/me/avatar", summary="上传用户头像")
+async def upload_user_avatar(
+        file: UploadFile = File(..., description="头像图片文件"),
+        current_user: User = Depends(get_current_user_required),
+        db: AsyncSession = Depends(get_db)
+):
+    """
+    上传用户头像
+
+    - **认证**: 需要Bearer Token
+    - **权限**: 用户只能上传自己的头像
+    - **文件格式**: 支持JPG、PNG、WebP格式
+    - **文件大小**: 最大5MB
+    - **图片处理**: 自动调整尺寸为200x200，保持宽高比居中裁剪
+    """
+    try:
+        # 验证文件类型
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="只能上传图片文件"
+            )
+
+        # 读取文件数据
+        file_data = await file.read()
+
+        # 上传头像
+        avatar_url = await avatar_service.upload_avatar(
+            user_id=str(current_user.id),
+            file_data=file_data,
+            filename=file.filename
+        )
+
+        # 如果用户已有头像，删除旧头像
+        if current_user.avatar_url:
+            try:
+                await avatar_service.delete_avatar(current_user.avatar_url)
+            except Exception:
+                # 删除失败不影响新头像上传
+                pass
+
+        # 更新用户头像URL
+        current_user.avatar_url = avatar_url
+        await db.commit()
+        await db.refresh(current_user)
+
+        return {
+            "message": "头像上传成功",
+            "avatar_url": avatar_url,
+            "user": UserResponse.model_validate(current_user)
+        }
+
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except FileUploadError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"头像上传失败: {str(e)}"
+        )
+
+
+@router.delete("/me/avatar", summary="删除用户头像")
+async def delete_user_avatar(
+        current_user: User = Depends(get_current_user_required),
+        db: AsyncSession = Depends(get_db)
+):
+    """
+    删除用户头像
+
+    - **认证**: 需要Bearer Token
+    - **权限**: 用户只能删除自己的头像
+    - **清理**: 同时删除MinIO中的文件
+    """
+    try:
+        if not current_user.avatar_url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="当前用户没有头像"
+            )
+
+        # 删除MinIO中的文件
+        success = await avatar_service.delete_avatar(current_user.avatar_url)
+
+        # 更新用户头像URL
+        current_user.avatar_url = None
+        await db.commit()
+        await db.refresh(current_user)
+
+        return {
+            "message": "头像删除成功",
+            "user": UserResponse.model_validate(current_user)
+        }
+
+    except FileUploadError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"头像删除失败: {str(e)}"
+        )
+
+
+@router.get("/me/avatar/info", summary="获取用户头像信息")
+async def get_avatar_info(
+        current_user: User = Depends(get_current_user_required)
+):
+    """
+    获取用户头像详细信息
+
+    - **认证**: 需要Bearer Token
+    - **权限**: 用户只能查看自己的头像信息
+    - **返回**: 头像文件大小、上传时间等信息
+    """
+    try:
+        if not current_user.avatar_url:
+            return {
+                "has_avatar": False,
+                "message": "当前用户没有头像"
+            }
+
+        avatar_info = await avatar_service.get_avatar_info(current_user.avatar_url)
+
+        if not avatar_info:
+            return {
+                "has_avatar": True,
+                "avatar_url": current_user.avatar_url,
+                "message": "头像文件不存在或无法访问"
+            }
+
+        return {
+            "has_avatar": True,
+            "avatar_url": current_user.avatar_url,
+            "avatar_info": avatar_info
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取头像信息失败: {str(e)}"
+        )
 
 
 __all__ = ["router"]

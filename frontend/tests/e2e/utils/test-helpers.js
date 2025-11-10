@@ -72,9 +72,9 @@ export async function checkConsoleErrors(page) {
 export async function loginUser(page, user) {
   await page.goto('/login')
 
-  await safeFill(page, 'input[placeholder="Username"]', user.username)
-  await safeFill(page, 'input[placeholder="Password"]', user.password)
-  await safeClick(page, 'button[type="submit"]')
+  await safeFill(page, 'input[placeholder="请输入用户名"]', user.username)
+  await safeFill(page, 'input[placeholder="请输入密码"]', user.password)
+  await safeClick(page, 'button:has-text("登录")')
 
   // 等待登录完成 - 检查是否跳转到dashboard或redirect URL
   await page.waitForURL(/dashboard|/)
@@ -84,11 +84,11 @@ export async function loginUser(page, user) {
 export async function registerUser(page, user) {
   await page.goto('/register')
 
-  await safeFill(page, 'input[placeholder="Username"]', user.username)
-  await safeFill(page, 'input[placeholder="Email"]', user.email)
-  await safeFill(page, 'input[placeholder="Password"]', user.password)
-  await safeFill(page, 'input[placeholder="Confirm Password"]', user.password)
-  await safeClick(page, 'button[type="submit"]')
+  await safeFill(page, 'input[placeholder="请输入用户名"]', user.username)
+  await safeFill(page, 'input[placeholder="请输入邮箱"]', user.email)
+  await safeFill(page, 'input[placeholder="请输入密码"]', user.password)
+  await safeFill(page, 'input[placeholder="请确认密码"]', user.password)
+  await safeClick(page, 'button:has-text("注册")')
 
   // 等待注册完成
   await page.waitForURL('/login')

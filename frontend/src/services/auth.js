@@ -1,4 +1,4 @@
-import { post, put, get } from './api'
+import { post, put, get, del, upload } from './api'
 
 export const authService = {
   // 用户登录
@@ -55,6 +55,26 @@ export const authService = {
   // 删除账户
   async deleteAccount(password) {
     const response = await put('/users/me/delete', { password })
+    return response
+  },
+
+  // 上传头像
+  async uploadAvatar(file, onProgress) {
+    const response = await upload('/users/me/avatar', file, {
+      onUploadProgress: onProgress
+    })
+    return response
+  },
+
+  // 删除头像
+  async deleteAvatar() {
+    const response = await del('/users/me/avatar')
+    return response
+  },
+
+  // 获取头像信息
+  async getAvatarInfo() {
+    const response = await get('/users/me/avatar/info')
     return response
   }
 }
