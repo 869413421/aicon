@@ -165,11 +165,6 @@ def get_pagination():
     return Depends(get_pagination_params)
 
 
-def get_db_session():
-    """获取数据库会话"""
-    return Depends(get_db)
-
-
 # 安全相关的依赖
 def get_current_active_user(
         current_user: User = Security(get_current_user_required)
@@ -204,7 +199,7 @@ __all__ = [
     "get_optional_user",
     "get_pagination_params",
     "get_pagination",
-    "get_db_session",
+    "get_db",
     "create_pagination_response",
     "PaginationParams",
     "PaginationResponse",

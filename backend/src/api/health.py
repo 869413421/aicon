@@ -12,7 +12,7 @@ from sqlalchemy import text
 import redis.asyncio as redis
 import psutil
 
-from src.core.database import get_db_session, engine
+from src.core.database import get_db, engine
 from src.core.config import settings
 from src.core.logging import logger
 
@@ -31,7 +31,7 @@ async def health_check():
 
 
 @router.get("/db")
-async def database_health(db: AsyncSession = Depends(get_db_session)):
+async def database_health(db: AsyncSession = Depends(get_db)):
     """数据库连接检查"""
     try:
         # 执行简单查询
@@ -186,8 +186,8 @@ async def detailed_health_check():
 
     # 数据库检查
     try:
-        from src.core.database import get_db_session
-        async with get_db_session().__anext__() as db:
+        from src.core.database import get_db
+        async with get_db().__anext__() as db:
             await db.execute(text("SELECT 1"))
         health_status["checks"]["database"] = {"status": "healthy"}
         checks.append("database")

@@ -1,5 +1,5 @@
 """
-pytest配置文件和共享fixtures
+简化的pytest配置文件，避免循环依赖
 """
 
 import pytest
@@ -13,32 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.pool import StaticPool
 from datetime import datetime
 
-# 延迟导入以避免循环依赖
-# from src.main import app
-# from src.core.database import get_db
-# from src.models.base import Base
-# from src.models.user import User
-# from src.models.project import Project, ProjectStatus, FileProcessingStatus, SupportedFileType
-# from src.services.project_service import ProjectService
-# from src.utils.storage import MinIOStorage
-
-# 测试数据库URL
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-# 创建测试引擎
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    connect_args={
-        "check_same_thread": False,
-    },
-    poolclass=StaticPool,
-)
-
-# 创建测试会话工厂
-TestSessionLocal = async_sessionmaker(
-    test_engine, class_=AsyncSession, expire_on_commit=False
-)
-
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -46,79 +20,6 @@ def event_loop():
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
-
-
-@pytest.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """创建测试数据库会话"""
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    async with TestSessionLocal() as session:
-        yield session
-
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-
-@pytest.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """创建测试客户端"""
-    from httpx import ASGITransport
-    from src.main import app
-    from src.core.database import get_db
-
-    def override_get_db():
-        return db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def test_user_data():
-    """测试用户数据"""
-    return {
-        "username": "testuser",
-        "email": "test@example.com",
-        "password": "testpassword123",
-        "display_name": "测试用户"
-    }
-
-
-@pytest.fixture
-def test_project_data():
-    """测试项目数据"""
-    return {
-        "title": "测试项目",
-        "description": "这是一个测试项目",
-        "file_name": "test.txt",
-        "file_type": "txt",
-        "file_size": 1024
-    }
-
-
-@pytest.fixture
-async def auth_headers(client: AsyncClient, test_user_data: dict):
-    """获取认证头"""
-    # 注册用户
-    response = await client.post("/api/v1/auth/register", json=test_user_data)
-    assert response.status_code == 201
-
-    # 登录获取token
-    login_data = {
-        "username": test_user_data["username"],
-        "password": test_user_data["password"]
-    }
-    response = await client.post("/api/v1/auth/login", data=login_data)
-    assert response.status_code == 200
-
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -196,21 +97,28 @@ def hello_world():
 
 
 @pytest.fixture
-def mock_user():
-    """模拟用户对象"""
-    from src.models.user import User
-    return User(
-        id="test-user-123",
-        email="test@example.com",
-        name="Test User",
-        created_at=None
-    )
+def test_file_factory():
+    """测试文件工厂函数"""
+    def create_test_file(content=None, suffix=".txt", encoding="utf-8"):
+        if content is None:
+            content = "This is a test file content."
+
+        if isinstance(content, str):
+            content = content.encode(encoding)
+
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+            f.write(content)
+            temp_path = f.name
+
+        return temp_path
+
+    return create_test_file
 
 
 @pytest.fixture
 def mock_storage_client():
     """模拟存储客户端"""
-    storage = Mock(spec=MinIOStorage)
+    storage = Mock()
     storage.bucket_name = "test-bucket"
 
     # 配置默认返回值
@@ -241,13 +149,13 @@ def mock_storage_client():
 @pytest.fixture
 def mock_project_service():
     """模拟项目服务"""
-    service = Mock(spec=ProjectService)
+    service = Mock()
 
     # 配置默认返回值
     service.create_project = AsyncMock(return_value=Mock(
         id="project-123",
         title="Test Project",
-        status=ProjectStatus.ACTIVE.value
+        status="active"
     ))
 
     service.get_project_by_id = AsyncMock(return_value=Mock(
@@ -289,42 +197,23 @@ def mock_project_service():
 
 
 @pytest.fixture
-def test_file_factory():
-    """测试文件工厂函数"""
-    def create_test_file(content=None, suffix=".txt", encoding="utf-8"):
-        if content is None:
-            content = "This is a test file content."
-
-        if isinstance(content, str):
-            content = content.encode(encoding)
-
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
-            f.write(content)
-            temp_path = f.name
-
-        return temp_path
-
-    return create_test_file
-
-
-@pytest.fixture
 def mock_project_factory():
     """模拟项目工厂函数"""
     def create_mock_project(
         project_id="project-123",
         title="Test Project",
         description="Test description",
-        status=ProjectStatus.ACTIVE,
-        file_type=SupportedFileType.TXT,
-        processing_status=FileProcessingStatus.COMPLETED
+        status="active",
+        file_type="txt",
+        processing_status="completed"
     ):
-        project = Mock(spec=Project)
+        project = Mock()
         project.id = project_id
         project.title = title
         project.description = description
-        project.status = status.value
-        project.file_type = file_type.value
-        project.file_processing_status = processing_status.value
+        project.status = status
+        project.file_type = file_type
+        project.file_processing_status = processing_status
         project.user_id = "test-user-123"
         project.file_size = 1024
         project.original_filename = "test.txt"
@@ -397,17 +286,5 @@ def setup_test_environment(monkeypatch):
 def setup_mocks(monkeypatch):
     """设置通用mock"""
     # Mock外部服务
-    try:
-        monkeypatch.setattr("src.utils.storage.get_storage_client", lambda: AsyncMock())
-    except AttributeError:
-        pass
-
-    try:
-        monkeypatch.setattr("src.services.project_service.get_project_service", lambda: AsyncMock())
-    except AttributeError:
-        pass
-
-    try:
-        monkeypatch.setattr("src.tasks.file_processing.celery_app", AsyncMock())
-    except AttributeError:
-        pass
+    monkeypatch.setattr("src.utils.storage.get_storage_client", lambda: AsyncMock())
+    monkeypatch.setattr("src.services.project_service.get_project_service", lambda: AsyncMock())

@@ -182,6 +182,11 @@ class Settings(BaseSettings):
         protocol = "https" if self.MINIO_SECURE else "http"
         return f"{protocol}://{self.MINIO_ENDPOINT}"
 
+    @property
+    def minio_bucket(self) -> str:
+        """MinIO默认存储桶名称"""
+        return self.MINIO_BUCKET_NAME
+
     model_config = {
         "env_file": "../.env",
         "env_file_encoding": "utf-8",

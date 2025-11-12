@@ -4,17 +4,17 @@
 Fixed password field mapping
 """
 
-from typing import Any, Dict, Optional
 from datetime import datetime
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from pydantic import BaseModel, Field, field_validator, field_serializer
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_user_required
 from src.core.database import get_db
+from src.core.exceptions import FileUploadError, ValidationError
 from src.core.security import get_password_hash, verify_password
-from src.core.exceptions import ValidationError, FileUploadError
 from src.models.user import User
 from src.services.avatar import avatar_service
 

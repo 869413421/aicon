@@ -80,7 +80,7 @@ def create_sync_engine() -> Engine:
     )
 
 
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """获取数据库会话（依赖注入）"""
     if AsyncSessionLocal is None:
         await create_database_engine()
@@ -94,10 +94,6 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
-
-
-# 为向后兼容添加别名
-get_db = get_db_session
 
 
 def get_sync_db_session():
@@ -243,7 +239,7 @@ __all__ = [
     "engine",
     "AsyncSessionLocal",
     "SessionLocal",
-    "get_db_session",
+    "get_db",
     "get_db",
     "get_sync_db_session",
     "create_database_engine",

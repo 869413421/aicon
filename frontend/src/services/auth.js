@@ -1,4 +1,4 @@
-import { post, put, get, del, upload } from './api'
+import { del, get, post, put, upload } from './api'
 
 export const authService = {
   // 用户登录
@@ -8,74 +8,63 @@ export const authService = {
     formData.append('username', credentials.username)
     formData.append('password', credentials.password)
 
-    const response = await post('/auth/login', formData, {
+    return await post('/auth/login', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     })
-    return response
   },
 
   // 用户注册
   async register(userData) {
-    const response = await post('/auth/register', userData)
-    return response
+    return await post('/auth/register', userData)
   },
 
   // 获取当前用户信息
   async getCurrentUser() {
-    const response = await get('/users/me')
-    return response
+    return await get('/users/me')
   },
 
   // 更新用户信息
   async updateProfile(userData) {
-    const response = await put('/users/me', userData)
-    return response
+    return await put('/users/me', userData)
   },
 
   // 修改密码
   async changePassword(passwordData) {
-    const response = await put('/users/me/password', passwordData)
-    return response
+    return await put('/users/me/password', passwordData)
   },
 
   // 获取用户统计信息
   async getUserStats() {
-    const response = await get('/users/me/stats')
-    return response
+    return await get('/users/me/stats')
   },
 
   // 重新发送验证邮件
   async resendVerificationEmail() {
-    const response = await post('/users/me/verify-email')
-    return response
+    return await post('/users/me/verify-email')
   },
 
   // 删除账户
   async deleteAccount(password) {
-    const response = await put('/users/me/delete', { password })
-    return response
+    return await put('/users/me/delete', { password })
   },
 
   // 上传头像
   async uploadAvatar(file, onProgress) {
-    const response = await upload('/users/me/avatar', file, {
+    return await upload('/users/me/avatar', file, {
       onUploadProgress: onProgress
     })
-    return response
   },
 
   // 删除头像
   async deleteAvatar() {
-    const response = await del('/users/me/avatar')
-    return response
+    return await del('/users/me/avatar')
   },
 
   // 获取头像信息
   async getAvatarInfo() {
-    const response = await get('/users/me/avatar/info')
-    return response
+    return await get('/users/me/avatar/info')
   }
 }
 

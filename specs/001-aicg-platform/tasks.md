@@ -152,7 +152,7 @@ curl http://localhost:8000/docs
 #### 后端服务与API
 - [ ] T051 [P] 实现文件处理工具 in backend/src/utils/file_handlers.py
 - [ ] T052 [P] 配置MinIO对象存储客户端 in backend/src/utils/storage.py
-- [ ] T053 [P] 实现项目管理服务 in backend/src/services/project_service.py
+- [ ] T053 [P] 实现项目管理服务 in backend/src/services/project.py
 - [ ] T054 [P] 实现文件上传API in backend/src/api/v1/upload.py
 - [ ] T055 [P] 实现项目管理API in backend/src/api/v1/projects.py
 - [ ] T056 [P] 实现文件删除和清理API in backend/src/api/v1/files.py

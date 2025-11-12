@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 
 from src.core.config import settings
-from src.core.database import get_db_session
+from src.core.database import get_db
 from src.core.security import (
     create_access_token,
     verify_token,
@@ -35,7 +35,7 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ) -> User:
     """获取当前认证用户"""
     credentials_exception = HTTPException(
@@ -69,7 +69,7 @@ async def get_current_user(
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserRegister,
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ) -> Any:
     """用户注册"""
     # 检查用户名是否已存在
@@ -107,7 +107,7 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ) -> Any:
     """用户登录"""
     # 查找用户
