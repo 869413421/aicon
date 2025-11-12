@@ -112,83 +112,93 @@ defineProps({
     rgba(99, 102, 241, 0.02) 100%);
 }
 
-/* 主容器 */
+/* 主容器 - 优化布局 */
 .auth-container {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 400px;
-  padding: var(--space-xl);
+  max-width: 420px;
+  padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  min-height: 100vh;
 }
 
-/* 头部样式 */
+/* 头部样式 - 优化空间占用 */
 .auth-header {
   text-align: center;
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
 }
 
 .logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-md);
-  margin-bottom: var(--space-xl);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
 }
 
 .logo-icon {
-  font-size: 32px;
+  font-size: 28px;
   color: var(--primary-color);
-  padding: var(--space-md);
+  padding: var(--space-sm);
   background: rgba(99, 102, 241, 0.1);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .logo-text {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: 0.5px;
 }
 
 .auth-title {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 var(--space-md) 0;
+  margin: 0 0 var(--space-sm) 0;
   line-height: 1.2;
 }
 
 .auth-subtitle {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
-/* 表单容器 */
+/* 表单容器 - 优化空间占用和内部结构 */
 .auth-content {
   width: 100%;
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
+  flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .form-container {
   background: var(--bg-primary);
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-primary);
-  box-shadow: var(--shadow-xl);
-  padding: var(--space-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-xl) var(--space-2xl);
   backdrop-filter: blur(10px);
   background: rgba(255, 255, 255, 0.95);
+  width: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
-/* 底部样式 */
+/* 底部样式 - 简化空间占用 */
 .auth-footer {
   text-align: center;
   width: 100%;
+  margin-top: auto;
+  padding-top: var(--space-md);
 }
 
 .footer-links {
@@ -196,14 +206,14 @@ defineProps({
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
   flex-wrap: wrap;
 }
 
 .footer-link {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   text-decoration: none;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   transition: color var(--transition-base);
 }
 
@@ -213,13 +223,14 @@ defineProps({
 
 .separator {
   color: var(--text-tertiary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
 .copyright {
   color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 1.4;
+  opacity: 0.7;
 }
 
 /* 页面切换动画 */
@@ -251,28 +262,44 @@ defineProps({
   }
 }
 
-/* 响应式设计 */
+/* 响应式设计 - 优化布局 */
 @media (max-width: 768px) {
   .auth-container {
     max-width: 100%;
-    padding: var(--space-lg);
-  }
-
-  .form-container {
-    padding: var(--space-lg);
-  }
-
-  .logo-icon {
-    font-size: 28px;
     padding: var(--space-md);
   }
 
+  .auth-header {
+    margin-bottom: var(--space-md);
+  }
+
+  .logo {
+    margin-bottom: var(--space-md);
+  }
+
+  .logo-icon {
+    font-size: 24px;
+    padding: var(--space-sm);
+  }
+
   .logo-text {
-    font-size: var(--text-xl);
+    font-size: var(--text-lg);
   }
 
   .auth-title {
-    font-size: var(--text-xl);
+    font-size: var(--text-lg);
+  }
+
+  .auth-subtitle {
+    font-size: var(--text-xs);
+  }
+
+  .auth-content {
+    margin-bottom: var(--space-md);
+  }
+
+  .form-container {
+    padding: var(--space-lg) var(--space-xl);
   }
 
   .footer-links {
@@ -287,11 +314,56 @@ defineProps({
 
 @media (max-width: 480px) {
   .auth-container {
-    padding: var(--space-md);
+    padding: var(--space-sm);
+  }
+
+  .auth-header {
+    margin-bottom: var(--space-sm);
+  }
+
+  .logo {
+    margin-bottom: var(--space-sm);
+  }
+
+  .logo-icon {
+    font-size: 20px;
+    padding: var(--space-xs);
+  }
+
+  .logo-text {
+    font-size: var(--text-base);
+  }
+
+  .auth-title {
+    font-size: var(--text-base);
+  }
+
+  .auth-subtitle {
+    font-size: var(--text-xs);
   }
 
   .form-container {
-    padding: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 360px) {
+  .auth-container {
+    padding: var(--space-xs);
+  }
+
+  .form-container {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-lg);
+  }
+
+  .logo-icon {
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-size: var(--text-sm);
   }
 }
 
