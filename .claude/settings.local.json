@@ -3,7 +3,8 @@
     "allow": [
       "Bash(find:*)",
       "Bash(python:*)",
-      "Bash(uv run python:*)"
+      "Bash(uv run python:*)",
+      "Bash(uv run grep:*)"
     ],
     "deny": [],
     "ask": []

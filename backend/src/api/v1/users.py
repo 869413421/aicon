@@ -1,14 +1,12 @@
 """
 用户管理API端点
 处理用户信息更新、密码修改、偏好设置等功能
-Fixed password field mapping
+重构后使用schemas模块中的Pydantic模型
 """
 
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from pydantic import BaseModel, Field, field_serializer, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_user_required
@@ -16,100 +14,20 @@ from src.core.database import get_db
 from src.core.security import get_password_hash, verify_password
 from src.models.user import User
 from src.services.avatar import avatar_service
+from src.api.schemas.user import (
+    UserUpdateRequest,
+    PasswordChangeRequest,
+    UserResponse,
+    UserStatsResponse,
+    UserDeleteRequest,
+    PasswordChangeResponse,
+    AvatarUploadResponse,
+    AvatarDeleteResponse,
+    AvatarInfoResponse,
+)
+from src.api.schemas.base import MessageResponse
 
 router = APIRouter()
-
-
-# Pydantic 模型定义
-class UserUpdateRequest(BaseModel):
-    """用户信息更新请求"""
-    display_name: Optional[str] = Field(None, max_length=100, description="显示名称")
-    avatar_url: Optional[str] = Field(None, max_length=500, description="头像URL")
-    preferences: Optional[Dict[str, Any]] = Field(None, description="用户偏好设置")
-    timezone: Optional[str] = Field("Asia/Shanghai", description="时区")
-    language: Optional[str] = Field("zh-CN", description="语言")
-
-    @field_validator('preferences', mode='before')
-    @classmethod
-    def validate_preferences(cls, v):
-        if v is not None:
-            if isinstance(v, str):
-                try:
-                    import json
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    raise ValueError('preferences必须是有效的JSON字符串')
-            elif not isinstance(v, dict):
-                raise ValueError('preferences必须是字典或JSON字符串')
-        return v
-
-    @field_validator('timezone')
-    @classmethod
-    def validate_timezone(cls, v):
-        if v and v not in ["Asia/Shanghai", "UTC", "America/New_York", "Europe/London"]:
-            raise ValueError('不支持的时区')
-        return v
-
-    @field_validator('language')
-    @classmethod
-    def validate_language(cls, v):
-        if v and v not in ["zh-CN", "en-US", "ja-JP"]:
-            raise ValueError('不支持的语言')
-        return v
-
-
-class PasswordChangeRequest(BaseModel):
-    """密码修改请求"""
-    current_password: str = Field(..., min_length=1, description="当前密码")
-    new_password: str = Field(..., min_length=8, max_length=128, description="新密码")
-
-    @field_validator('new_password')
-    @classmethod
-    def validate_password_strength(cls, v):
-        if len(v) < 8:
-            raise ValueError('密码长度至少8位')
-        if not any(c.isupper() for c in v):
-            raise ValueError('密码必须包含大写字母')
-        if not any(c.islower() for c in v):
-            raise ValueError('密码必须包含小写字母')
-        if not any(c.isdigit() for c in v):
-            raise ValueError('密码必须包含数字')
-        return v
-
-
-class UserResponse(BaseModel):
-    """用户信息响应"""
-    id: str
-    username: str
-    email: str
-    display_name: Optional[str]
-    avatar_url: Optional[str]
-    is_active: bool
-    is_verified: bool
-    preferences: Optional[Dict[str, Any]]
-    timezone: str
-    language: str
-    created_at: datetime
-    updated_at: datetime
-    last_login: Optional[datetime]
-
-    model_config = {"from_attributes": True}
-
-    @field_serializer('created_at', 'updated_at', 'last_login')
-    def serialize_datetime(self, value: Optional[datetime]) -> Optional[str]:
-        if value is None:
-            return None
-        return value.isoformat()
-
-
-class UserStatsResponse(BaseModel):
-    """用户统计信息响应"""
-    projects_count: int = 0
-    total_words: int = 0
-    generated_videos: int = 0
-    published_videos: int = 0
-    api_usage_this_month: float = 0.0
-    total_cost: float = 0.0
 
 
 @router.get("/me", response_model=UserResponse, summary="获取当前用户信息")
@@ -187,7 +105,7 @@ async def update_current_user(
     return UserResponse(**user_data)
 
 
-@router.put("/me/password", summary="修改用户密码")
+@router.put("/me/password", response_model=PasswordChangeResponse, summary="修改用户密码")
 async def change_user_password(
         password_request: PasswordChangeRequest,
         current_user: User = Depends(get_current_user_required),
@@ -218,7 +136,7 @@ async def change_user_password(
     current_user.password_hash = get_password_hash(password_request.new_password)
     await db.commit()
 
-    return {"message": "密码修改成功"}
+    return PasswordChangeResponse()
 
 
 @router.get("/me/stats", response_model=UserStatsResponse, summary="获取用户统计信息")
@@ -240,7 +158,7 @@ async def get_user_stats(
     return UserStatsResponse()
 
 
-@router.post("/me/verify-email", summary="重新发送验证邮件")
+@router.post("/me/verify-email", response_model=MessageResponse, summary="重新发送验证邮件")
 async def resend_verification_email(
         current_user: User = Depends(get_current_user_required)
 ):
@@ -260,15 +178,10 @@ async def resend_verification_email(
     # TODO: 实现邮件发送逻辑
     # 需要集成邮件服务，如SMTP或第三方邮件服务
 
-    return {"message": "验证邮件已发送，请检查您的邮箱"}
+    return MessageResponse(message="验证邮件已发送，请检查您的邮箱")
 
 
-class UserDeleteRequest(BaseModel):
-    """用户账户删除请求"""
-    password: str = Field(..., description="确认密码")
-
-
-@router.post("/me/delete", summary="删除用户账户")
+@router.post("/me/delete", response_model=MessageResponse, summary="删除用户账户")
 async def delete_user_account(
         delete_request: UserDeleteRequest,
         current_user: User = Depends(get_current_user_required),
@@ -297,10 +210,10 @@ async def delete_user_account(
     current_user.is_active = False
     await db.commit()
 
-    return {"message": "账户已成功删除"}
+    return MessageResponse(message="账户已成功删除")
 
 
-@router.post("/me/avatar", summary="上传用户头像")
+@router.post("/me/avatar", response_model=AvatarUploadResponse, summary="上传用户头像")
 async def upload_user_avatar(
         file: UploadFile = File(..., description="头像图片文件"),
         current_user: User = Depends(get_current_user_required),
@@ -345,15 +258,15 @@ async def upload_user_avatar(
     await db.commit()
     await db.refresh(current_user)
 
-    current_user.preferences = current_user.get_preferences()
-    return {
-        "message": "头像上传成功",
-        "avatar_url": avatar_url,
-        "user": UserResponse.model_validate(current_user)
-    }
+    user_response = UserResponse.from_orm(current_user)
+    return AvatarUploadResponse(
+        message="头像上传成功",
+        avatar_url=avatar_url,
+        user=user_response
+    )
 
 
-@router.delete("/me/avatar", summary="删除用户头像")
+@router.delete("/me/avatar", response_model=AvatarDeleteResponse, summary="删除用户头像")
 async def delete_user_avatar(
         current_user: User = Depends(get_current_user_required),
         db: AsyncSession = Depends(get_db)
@@ -379,14 +292,14 @@ async def delete_user_avatar(
     await db.commit()
     await db.refresh(current_user)
 
-    current_user.preferences = current_user.get_preferences()
-    return {
-        "message": "头像删除成功",
-        "user": UserResponse.model_validate(current_user)
-    }
+    user_response = UserResponse.from_orm(current_user)
+    return AvatarDeleteResponse(
+        message="头像删除成功",
+        user=user_response
+    )
 
 
-@router.get("/me/avatar/info", summary="获取用户头像信息")
+@router.get("/me/avatar/info", response_model=AvatarInfoResponse, summary="获取用户头像信息")
 async def get_avatar_info(
         current_user: User = Depends(get_current_user_required)
 ):
@@ -398,25 +311,25 @@ async def get_avatar_info(
     - **返回**: 头像文件大小、上传时间等信息
     """
     if not current_user.avatar_url:
-        return {
-            "has_avatar": False,
-            "message": "当前用户没有头像"
-        }
+        return AvatarInfoResponse(
+            has_avatar=False,
+            message="当前用户没有头像"
+        )
 
     avatar_info = await avatar_service.get_avatar_info(current_user.avatar_url)
 
     if not avatar_info:
-        return {
-            "has_avatar": True,
-            "avatar_url": current_user.avatar_url,
-            "message": "头像文件不存在或无法访问"
-        }
+        return AvatarInfoResponse(
+            has_avatar=True,
+            avatar_url=current_user.avatar_url,
+            message="头像文件不存在或无法访问"
+        )
 
-    return {
-        "has_avatar": True,
-        "avatar_url": current_user.avatar_url,
-        "avatar_info": avatar_info
-    }
+    return AvatarInfoResponse(
+        has_avatar=True,
+        avatar_url=current_user.avatar_url,
+        avatar_info=avatar_info
+    )
 
 
 __all__ = ["router"]

@@ -5,13 +5,12 @@ MinIO对象存储客户端 - 文件存储和管理
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, BinaryIO, Dict, Any, List
-from urllib.parse import urljoin
+from typing import Any, Dict, List, Optional
 
 import aiofiles
+from fastapi import UploadFile
 from minio import Minio
 from minio.error import S3Error
-from fastapi import HTTPException, UploadFile
 
 from src.core.config import settings
 from src.core.logging import get_logger
@@ -81,11 +80,11 @@ class MinIOStorage:
         return f"{prefix}/{user_id}/{date_str}/{unique_name}"
 
     async def upload_file(
-        self,
-        user_id: str,
-        file: UploadFile,
-        object_key: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None
+            self,
+            user_id: str,
+            file: UploadFile,
+            object_key: Optional[str] = None,
+            metadata: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """
         上传文件到MinIO
@@ -156,12 +155,12 @@ class MinIOStorage:
             raise StorageError(f"文件上传异常: {str(e)}")
 
     async def upload_file_from_path(
-        self,
-        user_id: str,
-        file_path: str,
-        original_filename: str,
-        object_key: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None
+            self,
+            user_id: str,
+            file_path: str,
+            original_filename: str,
+            object_key: Optional[str] = None,
+            metadata: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """
         从本地路径上传文件到MinIO
@@ -227,9 +226,9 @@ class MinIOStorage:
             raise StorageError(f"文件上传异常: {str(e)}")
 
     def get_presigned_url(
-        self,
-        object_key: str,
-        expires: timedelta = timedelta(hours=1)
+            self,
+            object_key: str,
+            expires: timedelta = timedelta(hours=1)
     ) -> str:
         """
         获取预签名URL
@@ -313,10 +312,10 @@ class MinIOStorage:
             return False
 
     async def copy_file(
-        self,
-        source_object_key: str,
-        dest_object_key: str,
-        metadata: Optional[Dict[str, str]] = None
+            self,
+            source_object_key: str,
+            dest_object_key: str,
+            metadata: Optional[Dict[str, str]] = None
     ) -> bool:
         """
         复制文件
@@ -343,9 +342,9 @@ class MinIOStorage:
             return False
 
     async def list_files(
-        self,
-        prefix: str,
-        limit: int = 100
+            self,
+            prefix: str,
+            limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
         列出文件

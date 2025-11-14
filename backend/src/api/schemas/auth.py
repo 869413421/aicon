@@ -1,10 +1,13 @@
 """
-认证相关的Pydantic模式 - 简化版
+认证相关的Pydantic模式
 """
 
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from .base import MessageResponse
+from .user import UserResponse
 
 
 class UserRegister(BaseModel):
@@ -49,44 +52,6 @@ class UserLogin(BaseModel):
     }
 
 
-class UserResponse(BaseModel):
-    """用户响应模式"""
-    id: str
-    username: str
-    email: str
-    display_name: Optional[str]
-    avatar_url: Optional[str]
-    is_verified: bool
-    is_active: bool
-    created_at: str
-    updated_at: str
-    last_login: Optional[str]
-    timezone: str
-    language: str
-
-    model_config = {
-        "from_attributes": True
-    }
-
-    @classmethod
-    def from_orm(cls, user):
-        """从ORM模型创建响应对象"""
-        return cls(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            display_name=user.display_name,
-            avatar_url=user.avatar_url,
-            is_verified=user.is_verified,
-            is_active=user.is_active,
-            created_at=user.created_at.isoformat() if user.created_at else None,
-            updated_at=user.updated_at.isoformat() if user.updated_at else None,
-            last_login=user.last_login.isoformat() if user.last_login else None,
-            timezone=user.timezone,
-            language=user.language,
-        )
-
-
 class TokenResponse(BaseModel):
     """令牌响应模式"""
     access_token: str = Field(..., description="访问令牌")
@@ -112,17 +77,25 @@ class TokenResponse(BaseModel):
     }
 
 
-class MessageResponse(BaseModel):
-    """消息响应模式"""
-    message: str = Field(..., description="响应消息")
+class TokenVerifyResponse(BaseModel):
+    """令牌验证响应模式"""
+    valid: bool = Field(True, description="令牌是否有效")
+    user_id: str = Field(..., description="用户ID")
+    username: str = Field(..., description="用户名")
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "message": "操作成功"
+                "valid": True,
+                "user_id": "uuid-string",
+                "username": "john_doe"
             }
         }
     }
+
+
+# 为了向后兼容，保留UserResponse的导出
+# 但实际使用user模块中的UserResponse
 
 
 __all__ = [
@@ -130,5 +103,6 @@ __all__ = [
     "UserLogin",
     "UserResponse",
     "TokenResponse",
+    "TokenVerifyResponse",
     "MessageResponse",
 ]

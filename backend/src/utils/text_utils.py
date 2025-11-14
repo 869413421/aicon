@@ -39,14 +39,9 @@ class ParagraphSplitter:
         将文本分割为段落 - 委托给FileHandler
         保持接口兼容性，避免重复实现
         """
-        try:
-            from src.utils.file_handlers import TextAnalyzer
-            return TextAnalyzer.split_into_paragraphs(text)
-        except ImportError:
-            # 独立测试时的极简实现
-            if not text:
-                return []
-            return [p.strip() for p in text.split('\n\n') if p.strip()]
+        if not text:
+            return []
+        return [p.strip() for p in text.split('\n\n') if p.strip()]
 
 
 class SentenceSplitter:
@@ -183,15 +178,9 @@ class SentenceSplitter:
         计算词数 - 委托给FileHandler以避免重复实现
         保持接口兼容性，统一字数统计逻辑
         """
-        try:
-            from src.utils.file_handlers import TextAnalyzer
-            return TextAnalyzer.count_words(text)
-        except ImportError:
-            # 独立测试时的简化实现
-            import re
-            chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
-            english_words = len(re.findall(r'\b[a-zA-Z]+\b', text))
-            return chinese_chars + english_words
+        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
+        english_words = len(re.findall(r'\b[a-zA-Z]+\b', text))
+        return chinese_chars + english_words
 
 
 # 全局实例

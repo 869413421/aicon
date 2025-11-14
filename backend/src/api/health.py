@@ -4,16 +4,15 @@
 
 import time
 from datetime import datetime
-from typing import Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-import redis.asyncio as redis
 import psutil
+import redis.asyncio as redis
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.database import get_db, engine
 from src.core.config import settings
+from src.core.database import get_db
 from src.core.logging import logger
 
 router = APIRouter()

@@ -1,11 +1,10 @@
 """
-文件管理API - 处理纯文件上传和管理，遵循单一职责原则
+文件管理API - 重构后使用schemas模块中的Pydantic模型
 """
 
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_user_required
@@ -15,22 +14,23 @@ from src.models.user import User
 from src.services.project import ProjectService
 from src.utils.file_handlers import FileHandler, FileProcessingError
 from src.utils.storage import get_storage_client
+from src.api.schemas.file import (
+    FileUploadResult,
+    FileInfo,
+    FileListResponse,
+    FileCleanupResponse,
+    FileStorageUsageResponse,
+    FileBatchDeleteResponse,
+    FileIntegrityCheckResponse,
+    FileType,
+)
 
 logger = get_logger(__name__)
 
 router = APIRouter()
 
 
-class FileUploadResponse(BaseModel):
-    """文件上传响应模型"""
-    file_id: str
-    original_filename: str
-    file_size: int
-    file_type: str
-    storage_key: str
-
-
-@router.post("/upload", response_model=Dict[str, Any])
+@router.post("/upload", response_model=FileUploadResult)
 async def upload_file(
         *,
         current_user: User = Depends(get_current_user_required),
@@ -71,22 +71,22 @@ async def upload_file(
 
     logger.info(f"文件上传到存储成功: {storage_result}")
 
-    return {
-        "success": True,
-        "message": "文件上传成功",
-        "data": {
+    return FileUploadResult(
+        success=True,
+        message="文件上传成功",
+        data={
             "file_id": file_id,
             "original_filename": file.filename,
             "file_size": file.size,
             "file_type": file_type,
             "storage_key": storage_result["object_key"],
-            "file_info": file_info,
-            "storage_info": storage_result,
-        }
-    }
+        },
+        file_info=file_info,
+        storage_info=storage_result,
+    )
 
 
-@router.delete("/cleanup/orphaned")
+@router.delete("/cleanup/orphaned", response_model=FileCleanupResponse)
 async def cleanup_orphaned_files(
         *,
         current_user: User = Depends(get_current_user_required),
@@ -152,38 +152,43 @@ async def cleanup_orphaned_files(
 
     # 如果不是试运行，执行删除
     deleted_files = []
+    deleted_keys = []
     if not dry_run:
         for file_info in orphaned_files:
             try:
                 success = await storage_client.delete_file(file_info['object_key'])
                 if success:
                     deleted_files.append(file_info['object_key'])
+                    deleted_keys.append(file_info['object_key'])
             except Exception as e:
                 logger.error(f"删除文件失败 {file_info['object_key']}: {e}")
 
     total_size = sum(f.get('size', 0) for f in orphaned_files)
     deleted_size = sum(f.get('size', 0) for f in orphaned_files if f['object_key'] in deleted_files)
 
-    return {
-        "success": True,
-        "dry_run": dry_run,
-        "found_orphaned_files": len(orphaned_files),
-        "deleted_files": len(deleted_files),
-        "total_size_mb": round(total_size / (1024 * 1024), 2),
-        "deleted_size_mb": round(deleted_size / (1024 * 1024), 2),
-        "files": [
-            {
-                "object_key": f['object_key'],
-                "size": f.get('size'),
-                "size_mb": round(f.get('size', 0) / (1024 * 1024), 2),
-                "last_modified": f.get('last_modified')
-            }
-            for f in orphaned_files
-        ]
-    }
+    # 格式化文件详情
+    files_details = [
+        {
+            "object_key": f['object_key'],
+            "size": f.get('size'),
+            "size_mb": round(f.get('size', 0) / (1024 * 1024), 2),
+            "last_modified": f.get('last_modified')
+        }
+        for f in orphaned_files
+    ]
+
+    return FileCleanupResponse(
+        success=True,
+        dry_run=dry_run,
+        found_orphaned_files=len(orphaned_files),
+        deleted_files=len(deleted_files),
+        total_size_mb=round(total_size / (1024 * 1024), 2),
+        deleted_size_mb=round(deleted_size / (1024 * 1024), 2),
+        files=files_details,
+    )
 
 
-@router.get("/storage/usage")
+@router.get("/storage/usage", response_model=FileStorageUsageResponse)
 async def get_storage_usage(
         *,
         current_user: User = Depends(get_current_user_required),
@@ -226,19 +231,22 @@ async def get_storage_usage(
             else:
                 file_type_stats[ext] = 1
 
-    return {
-        "success": True,
-        "total_files": len(files),
-        "total_size_mb": round(total_size / (1024 * 1024), 2),
-        "total_size_gb": round(total_size / (1024 * 1024 * 1024), 2),
-        "file_type_distribution": file_type_stats,
-        "project_stats": stats,
-        "quota_limit_gb": 10.0,  # 示例：10GB限制
-        "quota_usage_percent": round((total_size / (10 * 1024 * 1024 * 1024)) * 100, 2)
-    }
+    quota_limit_gb = 10.0  # 示例：10GB限制
+    quota_usage_percent = round((total_size / (quota_limit_gb * 1024 * 1024 * 1024)) * 100, 2)
+
+    return FileStorageUsageResponse(
+        success=True,
+        total_files=len(files),
+        total_size_mb=round(total_size / (1024 * 1024), 2),
+        total_size_gb=round(total_size / (1024 * 1024 * 1024), 2),
+        file_type_distribution=file_type_stats,
+        project_stats=stats,
+        quota_limit_gb=quota_limit_gb,
+        quota_usage_percent=quota_usage_percent,
+    )
 
 
-@router.get("/list")
+@router.get("/list", response_model=FileListResponse)
 async def list_user_files(
         *,
         current_user: User = Depends(get_current_user_required),
@@ -308,19 +316,19 @@ async def list_user_files(
         file_info['is_orphaned'] = file_info['object_key'] not in project_object_keys
 
     total_pages = (total_files + size - 1) // size
+    orphaned_count = sum(1 for f in cleaned_files if f['is_orphaned'])
 
-    return {
-        "success": True,
-        "files": cleaned_files,
-        "total_files": total_files,
-        "page": page,
-        "size": size,
-        "total_pages": total_pages,
-        "orphaned_count": sum(1 for f in cleaned_files if f['is_orphaned'])
-    }
+    return FileListResponse(
+        files=[FileInfo(**f) for f in cleaned_files],
+        total=total_files,
+        page=page,
+        size=size,
+        total_pages=total_pages,
+        orphaned_count=orphaned_count,
+    )
 
 
-@router.post("/batch-delete")
+@router.post("/batch-delete", response_model=FileBatchDeleteResponse)
 async def batch_delete_files(
         *,
         current_user: User = Depends(get_current_user_required),
@@ -396,20 +404,20 @@ async def batch_delete_files(
             logger.error(f"删除文件失败 {object_key}: {e}")
             failed_keys.append(object_key)
 
-    return {
-        "success": True,
-        "requested_files": len(object_keys),
-        "valid_files": len(valid_keys),
-        "protected_files": len(protected_keys),
-        "deleted_files": len(deleted_keys),
-        "failed_files": len(failed_keys),
-        "deleted_keys": deleted_keys,
-        "failed_keys": failed_keys,
-        "protected_keys": protected_keys
-    }
+    return FileBatchDeleteResponse(
+        success=True,
+        requested_files=len(object_keys),
+        valid_files=len(valid_keys),
+        protected_files=len(protected_keys),
+        deleted_files=len(deleted_keys),
+        failed_files=len(failed_keys),
+        deleted_keys=deleted_keys,
+        failed_keys=failed_keys,
+        protected_keys=protected_keys,
+    )
 
 
-@router.get("/integrity/check")
+@router.get("/integrity/check", response_model=FileIntegrityCheckResponse)
 async def check_file_integrity(
         *,
         current_user: User = Depends(get_current_user_required),
@@ -427,6 +435,8 @@ async def check_file_integrity(
     Returns:
         完整性检查结果
     """
+    from src.api.schemas.file import FileIntegrityCheckResult
+
     storage_client = await get_storage_client()
     project_service = ProjectService(db)
 
@@ -451,14 +461,14 @@ async def check_file_integrity(
     results = []
     for project in projects:
         if not project.file_path:
-            results.append({
-                "project_id": project.id,
-                "project_title": project.title,
-                "file_exists": False,
-                "file_size_match": None,
-                "file_hash_match": None,
-                "error": "项目没有关联的文件"
-            })
+            results.append(FileIntegrityCheckResult(
+                project_id=project.id,
+                project_title=project.title,
+                file_exists=False,
+                file_size_match=None,
+                file_hash_match=None,
+                error="项目没有关联的文件"
+            ))
             continue
 
         try:
@@ -475,53 +485,55 @@ async def check_file_integrity(
                 # 检查文件哈希是否匹配
                 hash_match = file_info.get('metadata', {}).get('file_hash') == project.file_hash
 
-                results.append({
-                    "project_id": project.id,
-                    "project_title": project.title,
-                    "file_exists": file_exists,
-                    "file_size_match": size_match,
-                    "file_hash_match": hash_match,
-                    "storage_size": storage_size,
-                    "project_size": project_size,
-                    "error": None
-                })
+                results.append(FileIntegrityCheckResult(
+                    project_id=project.id,
+                    project_title=project.title,
+                    file_exists=file_exists,
+                    file_size_match=size_match,
+                    file_hash_match=hash_match,
+                    storage_size=storage_size,
+                    project_size=project_size,
+                    error=None
+                ))
             else:
-                results.append({
-                    "project_id": project.id,
-                    "project_title": project.title,
-                    "file_exists": False,
-                    "file_size_match": None,
-                    "file_hash_match": None,
-                    "error": "文件在存储中不存在"
-                })
+                results.append(FileIntegrityCheckResult(
+                    project_id=project.id,
+                    project_title=project.title,
+                    file_exists=False,
+                    file_size_match=None,
+                    file_hash_match=None,
+                    error="文件在存储中不存在"
+                ))
 
         except Exception as e:
-            results.append({
-                "project_id": project.id,
-                "project_title": project.title,
-                "file_exists": False,
-                "file_size_match": None,
-                "file_hash_match": None,
-                "error": f"检查失败: {str(e)}"
-            })
+            results.append(FileIntegrityCheckResult(
+                project_id=project.id,
+                project_title=project.title,
+                file_exists=False,
+                file_size_match=None,
+                file_hash_match=None,
+                error=f"检查失败: {str(e)}"
+            ))
 
     # 统计结果
     total_checked = len(results)
-    files_exist = sum(1 for r in results if r['file_exists'])
-    size_mismatch = sum(1 for r in results if r['file_exists'] and not r['file_size_match'])
-    hash_mismatch = sum(1 for r in results if r['file_exists'] and not r['file_hash_match'])
+    files_exist = sum(1 for r in results if r.file_exists)
+    size_mismatch = sum(1 for r in results if r.file_exists and not r.file_size_match)
+    hash_mismatch = sum(1 for r in results if r.file_exists and not r.file_hash_match)
 
-    return {
-        "success": True,
-        "project_id": project_id,
-        "total_checked": total_checked,
-        "files_exist": files_exist,
-        "files_missing": total_checked - files_exist,
-        "size_mismatch": size_mismatch,
-        "hash_mismatch": hash_mismatch,
-        "integrity_score": round(((files_exist - size_mismatch - hash_mismatch) / total_checked * 100) if total_checked > 0 else 0, 2),
-        "results": results
-    }
+    integrity_score = round(((files_exist - size_mismatch - hash_mismatch) / total_checked * 100) if total_checked > 0 else 0, 2)
+
+    return FileIntegrityCheckResponse(
+        success=True,
+        project_id=project_id,
+        total_checked=total_checked,
+        files_exist=files_exist,
+        files_missing=total_checked - files_exist,
+        size_mismatch=size_mismatch,
+        hash_mismatch=hash_mismatch,
+        integrity_score=integrity_score,
+        results=results,
+    )
 
 
 __all__ = ["router"]

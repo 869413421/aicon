@@ -30,40 +30,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 
-def clean_text_for_database(text: str) -> str:
-    """
-    清理文本内容，确保可以安全存储到UTF-8数据库中
 
-    Args:
-        text: 原始文本
-
-    Returns:
-        清理后的文本
-    """
-    if not text:
-        return text
-
-    # 1. 确保文本是有效的UTF-8
-    try:
-        # 如果已经是字符串，重新编码以验证
-        text.encode('utf-8').decode('utf-8')
-    except UnicodeError:
-        # 如果有编码问题，使用错误处理
-        text = text.encode('utf-8', errors='replace').decode('utf-8')
-
-    # 2. 移除控制字符（保留常用的换行、制表符等）
-    # 保留：\n (10), \r (13), \t (9)
-    # 移除：\x00-\x08, \x0B, \x0C, \x0E-\x1F, \x7F
-    text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
-
-    # 3. 替换可能有问题的Unicode字符
-    # 移除或替换一些可能导致数据库问题的特殊字符
-    text = re.sub(r'[\uFFFE\uFFFF]', '', text)  # 无效的Unicode字符
-
-    # 4. 标准化换行符
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
-
-    return text.strip()
 
 try:
     from src.core.exceptions import ValidationError
@@ -76,6 +43,7 @@ except ImportError:
     def get_logger(name):
         import logging
         return logging.getLogger(name)
+
 
     # 创建简单的ValidationError模拟
     class ValidationError(ValueError):
@@ -138,6 +106,12 @@ class RegexChapterDetector(ChapterDetector):
                 'pattern': r'^第[一二三四五六七八九十百千万0-9]+[章节回卷篇]',
                 'name': 'chinese_numbered',
                 'confidence': 0.9
+            },
+            # 简单数字章节：1.、2.、3.
+            {
+                'pattern': r'^(\d+)\.\s+.*',
+                'name': 'simple_numbered_dot',
+                'confidence': 0.85
             },
             # 数字章节：1. 第一章、1、Chapter 1
             {
@@ -290,10 +264,8 @@ class TextParserService:
 
         logger.info(f"开始解析文档，文本长度: {len(text)} 字符")
 
-        # 0. 首先清理整个文本的编码
-        cleaned_text = clean_text_for_database(text)
-        if len(cleaned_text) != len(text):
-            logger.info(f"文本清理完成，长度从 {len(text)} 变为 {len(cleaned_text)}")
+        # 0. 标准化换行符
+        cleaned_text = text.replace('\r\n', '\n').replace('\r', '\n')
 
         # 1. 检测章节
         chapters = self.detector.detect_chapters(cleaned_text)
@@ -432,8 +404,8 @@ class TextParserService:
         # 构建章节数据
         for chapter_detection in parsed.chapters:
             # 清理章节标题和内容
-            cleaned_title = clean_text_for_database(chapter_detection.title)
-            cleaned_content = clean_text_for_database(chapter_detection.content)
+            cleaned_title = chapter_detection.title.replace('\r\n', '\n').replace('\r', '\n').strip()
+            cleaned_content = chapter_detection.content.replace('\r\n', '\n').replace('\r', '\n').strip()
 
             chapter_data = {
                 'project_id': project_id,
@@ -463,7 +435,7 @@ class TextParserService:
 
             for para_idx, paragraph_text in enumerate(chapter_paragraphs):
                 # 清理段落文本
-                cleaned_paragraph = clean_text_for_database(paragraph_text)
+                cleaned_paragraph = paragraph_text.replace('\r\n', '\n').replace('\r', '\n').strip()
 
                 paragraph_data = {
                     'chapter_id': None,  # 在保存后设置
@@ -482,7 +454,7 @@ class TextParserService:
 
                 for sent_idx, sentence_text in enumerate(paragraph_sentences):
                     # 清理句子文本
-                    cleaned_sentence = clean_text_for_database(sentence_text)
+                    cleaned_sentence = sentence_text.replace('\r\n', '\n').replace('\r', '\n').strip()
 
                     sentence_data = {
                         'paragraph_id': None,  # 在保存后设置
