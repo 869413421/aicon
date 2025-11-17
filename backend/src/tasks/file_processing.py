@@ -12,6 +12,7 @@
 - 任务状态管理
 """
 
+import asyncio
 from typing import Any, Dict
 
 from celery import Celery
@@ -60,7 +61,7 @@ celery_app.conf.update(
     retry_jitter=True,
     name="file_processing.process_uploaded_file"
 )
-async def process_uploaded_file(self, project_id: str, owner_id: str) -> Dict[str, Any]:
+def process_uploaded_file(self, project_id: str, owner_id: str) -> Dict[str, Any]:
     """
     处理上传文件的 Celery 任务
 
@@ -79,8 +80,8 @@ async def process_uploaded_file(self, project_id: str, owner_id: str) -> Dict[st
     """
     logger.info(f"Celery任务开始: process_uploaded_file (project_id={project_id})")
 
-    # 调用服务层的完整文件处理流程
-    result = await project_processing_service.process_file_task(project_id, owner_id)
+    # 使用asyncio.run运行异步函数
+    result = asyncio.run(project_processing_service.process_file_task(project_id, owner_id))
 
     logger.info(f"Celery任务成功: process_uploaded_file (project_id={project_id})")
     return result
@@ -94,7 +95,7 @@ async def process_uploaded_file(self, project_id: str, owner_id: str) -> Dict[st
     retry_jitter=True,
     name="file_processing.retry_failed_project"
 )
-async def retry_failed_project(self, project_id: str, owner_id: str) -> Dict[str, Any]:
+def retry_failed_project(self, project_id: str, owner_id: str) -> Dict[str, Any]:
     """
     重试失败项目的 Celery 任务
 
@@ -110,8 +111,8 @@ async def retry_failed_project(self, project_id: str, owner_id: str) -> Dict[str
     logger.info(f"Celery任务开始: retry_failed_project (project_id={project_id})")
 
     try:
-        # 调用服务层的重试逻辑
-        result = await project_processing_service.retry_failed_project(project_id, owner_id)
+        # 使用asyncio.run运行异步函数
+        result = asyncio.run(project_processing_service.retry_failed_project(project_id, owner_id))
 
         if result.get("success", False):
             logger.info(f"Celery任务成功: retry_failed_project (project_id={project_id})")

@@ -72,6 +72,7 @@
         @delete-project="handleDeleteProject"
         @view-project="handleViewProject"
         @archive-project="handleArchiveProject"
+        @retry-project="handleRetryProject"
         @page-change="handlePageChange"
         @size-change="handleSizeChange"
         @row-click="handleRowClick"
@@ -344,17 +345,27 @@
   }
 
   
-  const handleReprocess = async (project) => {
+  const handleRetryProject = async (project) => {
     try {
-      await projectsStore.reprocessProject(project.id)
-      ElMessage.success('重新处理请求已发送')
-      if (selectedProject.value) {
+      await projectsStore.retryProject(project.id)
+
+      // 重试成功后刷新项目列表
+      loadProjects()
+
+      // 如果当前在查看该项目详情，也刷新详情
+      if (selectedProjectId.value === project.id) {
         loadProjectDetail(project.id)
       }
+
     } catch (error) {
-      console.error('重新处理失败:', error)
-      ElMessage.error('重新处理失败')
+      console.error('重试项目失败:', error)
+      // 错误消息已经在store中处理了
     }
+  }
+
+  const handleReprocess = async (project) => {
+    // 向后兼容，使用重试功能
+    await handleRetryProject(project)
   }
 
   const handleBackToList = () => {

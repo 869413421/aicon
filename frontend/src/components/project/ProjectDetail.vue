@@ -153,7 +153,15 @@
           归档项目
         </el-button>
         <el-button
-          v-if="['failed', 'completed'].includes(project.status)"
+          v-if="project.status === 'failed'"
+          type="warning"
+          :icon="RefreshRight"
+          @click="handleReprocess"
+        >
+          重试
+        </el-button>
+        <el-button
+          v-if="project.status === 'completed'"
           type="info"
           :icon="Refresh"
           @click="handleReprocess"
@@ -189,14 +197,15 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   ArrowLeft,
   VideoPlay,
   Edit,
   Lock,
-  Refresh
+  Refresh,
+  RefreshRight
 } from '@element-plus/icons-vue'
 import { useProjectsStore } from '@/stores/projects'
 
@@ -236,6 +245,9 @@ const emit = defineEmits([
 // 响应式数据
 const refreshing = ref(false)
 
+// 状态轮询
+const pollingInterval = ref(null)
+
 // 方法
 const handleBack = () => {
   emit('back')
@@ -271,7 +283,79 @@ const handleArchive = async () => {
 
 const handleReprocess = () => {
   emit('reprocess', props.project)
+
+  // 重试后重新开始状态轮询
+  setTimeout(() => {
+    startStatusPolling()
+  }, 1000) // 延迟1秒后开始轮询，确保状态已更新
 }
+
+// 状态轮询相关方法
+const startStatusPolling = () => {
+  // 清理已有的轮询
+  stopStatusPolling()
+
+  // 只有在处理中的状态才进行轮询
+  if (!props.project || !['uploaded', 'parsing', 'generating'].includes(props.project.status)) {
+    return
+  }
+
+  // 立即查询一次状态
+  pollProjectStatus()
+
+  // 设置定时轮询
+  pollingInterval.value = setInterval(() => {
+    pollProjectStatus()
+  }, 3000) // 每3秒轮询一次
+}
+
+const stopStatusPolling = () => {
+  if (pollingInterval.value) {
+    clearInterval(pollingInterval.value)
+    pollingInterval.value = null
+  }
+}
+
+const pollProjectStatus = async () => {
+  try {
+    const statusResponse = await projectsStore.fetchProjectStatus(props.projectId)
+
+    // 如果处理完成或失败，停止轮询
+    const finalStatuses = ['parsed', 'completed', 'failed', 'archived']
+    if (finalStatuses.includes(statusResponse.project.status)) {
+      stopStatusPolling()
+      // 发出刷新事件，让父组件更新项目数据
+      emit('refresh', props.projectId)
+    }
+
+  } catch (error) {
+    console.error('轮询项目状态失败:', error)
+    // 轮询失败不显示错误，避免打扰用户
+  }
+}
+
+// 生命周期和监听器
+onMounted(() => {
+  // 组件挂载时开始状态轮询
+  startStatusPolling()
+})
+
+onUnmounted(() => {
+  // 组件卸载时清理轮询
+  stopStatusPolling()
+})
+
+// 监听项目变化，重新开始轮询
+watch(() => props.project, (newProject) => {
+  if (newProject) {
+    startStatusPolling()
+  }
+}, { immediate: true })
+
+// 监听projectId变化
+watch(() => props.projectId, () => {
+  startStatusPolling()
+})
 
 // 使用store中的工具方法，避免重复代码
 </script>

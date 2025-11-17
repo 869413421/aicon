@@ -179,6 +179,86 @@ class ProjectArchiveResponse(BaseModel):
     }
 
 
+class ProjectProcessingResponse(BaseModel):
+    """项目处理响应模型 - 用于创建项目后启动处理任务"""
+    success: bool = Field(True, description="处理是否成功")
+    message: str = Field(..., description="响应消息")
+    project: ProjectResponse = Field(..., description="项目信息")
+    task_id: Optional[str] = Field(None, description="Celery任务ID")
+    processing_status: str = Field(..., description="处理状态")
+    can_retry: bool = Field(False, description="是否可以重试")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "success": True,
+                "message": "项目创建成功，已开始解析",
+                "project": {
+                    "id": "uuid-string",
+                    "title": "我的小说项目",
+                    "status": "parsing",
+                    "processing_progress": 0
+                },
+                "task_id": "celery-task-uuid",
+                "processing_status": "parsing",
+                "can_retry": False
+            }
+        }
+    }
+
+
+class ProjectRetryResponse(BaseModel):
+    """项目重试响应模型"""
+    success: bool = Field(True, description="重试是否成功")
+    message: str = Field(..., description="响应消息")
+    task_id: Optional[str] = Field(None, description="Celery任务ID")
+    processing_status: str = Field(..., description="新的处理状态")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "success": True,
+                "message": "重试任务已提交",
+                "task_id": "celery-retry-task-uuid",
+                "processing_status": "parsing"
+            }
+        }
+    }
+
+
+class ProjectStatusResponse(BaseModel):
+    """项目状态详细响应模型"""
+    project: ProjectResponse = Field(..., description="项目信息")
+    processing_details: Optional[dict] = Field(None, description="处理详情（来自Celery任务）")
+    task_info: Optional[dict] = Field(None, description="任务信息")
+    can_retry: bool = Field(False, description="是否可以重试")
+    estimated_time: Optional[int] = Field(None, description="预估剩余时间（秒）")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "project": {
+                    "id": "uuid-string",
+                    "title": "我的小说项目",
+                    "status": "parsing",
+                    "processing_progress": 45
+                },
+                "processing_details": {
+                    "chapters_count": 12,
+                    "paragraphs_count": 156,
+                    "sentences_count": 423
+                },
+                "task_info": {
+                    "task_id": "celery-task-uuid",
+                    "status": "running"
+                },
+                "can_retry": False,
+                "estimated_time": 120
+            }
+        }
+    }
+
+
 # 项目状态枚举
 class ProjectStatus(str):
     """项目状态枚举"""
@@ -207,5 +287,8 @@ __all__ = [
     "ProjectListResponse",
     "ProjectDeleteResponse",
     "ProjectArchiveResponse",
+    "ProjectProcessingResponse",
+    "ProjectRetryResponse",
+    "ProjectStatusResponse",
     "ProjectStatus",
 ]

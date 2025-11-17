@@ -345,30 +345,94 @@ export const useProjectsStore = defineStore('projects', () => {
   }
 
   /**
-   * 重新处理项目
+   * 重试失败的项目
    * @param {string} projectId - 项目ID
    */
-  const reprocessProject = async (projectId) => {
+  const retryProject = async (projectId) => {
     try {
       loading.value = true
       error.value = null
 
-      // 这里需要实现重新处理逻辑
-      const updateData = {
-        status: 'parsing',
-        processing_progress: 0,
-        error_message: null
+      const response = await projectsService.retryProject(projectId)
+
+      // 更新列表中的项目状态
+      const index = projects.value.findIndex(p => p.id === projectId)
+      if (index !== -1) {
+        projects.value[index] = {
+          ...projects.value[index],
+          status: response.processing_status || 'parsing',
+          processing_progress: 0,
+          error_message: null
+        }
       }
 
-      await updateProject(projectId, updateData)
+      // 更新当前项目
+      if (currentProject.value?.id === projectId) {
+        currentProject.value = {
+          ...currentProject.value,
+          status: response.processing_status || 'parsing',
+          processing_progress: 0,
+          error_message: null
+        }
+      }
+
+      ElMessage.success('重试任务已提交')
+      return response
 
     } catch (err) {
-      error.value = err.message || '重新处理失败'
+      error.value = err.message || '重试失败'
       ElMessage.error(error.value)
       throw err
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * 获取项目状态详情
+   * @param {string} projectId - 项目ID
+   */
+  const fetchProjectStatus = async (projectId) => {
+    try {
+      const statusResponse = await projectsService.getProjectStatus(projectId)
+
+      // 更新列表中的项目状态
+      const index = projects.value.findIndex(p => p.id === projectId)
+      if (index !== -1) {
+        projects.value[index] = {
+          ...projects.value[index],
+          status: statusResponse.project.status,
+          processing_progress: statusResponse.project.processing_progress,
+          error_message: statusResponse.project.error_message
+        }
+      }
+
+      // 更新当前项目
+      if (currentProject.value?.id === projectId) {
+        currentProject.value = {
+          ...currentProject.value,
+          status: statusResponse.project.status,
+          processing_progress: statusResponse.project.processing_progress,
+          error_message: statusResponse.project.error_message
+        }
+      }
+
+      return statusResponse
+
+    } catch (err) {
+      error.value = err.message || '获取项目状态失败'
+      // 轮询失败时不显示错误消息，避免干扰用户
+      console.error('获取项目状态失败:', err)
+      throw err
+    }
+  }
+
+  /**
+   * 重新处理项目（向后兼容）
+   * @param {string} projectId - 项目ID
+   */
+  const reprocessProject = async (projectId) => {
+    return await retryProject(projectId)
   }
 
   /**
@@ -411,12 +475,14 @@ export const useProjectsStore = defineStore('projects', () => {
     fetchProjects,
     fetchProjectById,
     fetchProjectContent,
+    fetchProjectStatus,
     createProject,
     updateProject,
     deleteProject,
     downloadProject,
     duplicateProject,
     archiveProject,
+    retryProject,
     reprocessProject,
     setFilters,
     resetState,

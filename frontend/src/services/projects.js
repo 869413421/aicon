@@ -88,6 +88,24 @@ export const projectsService = {
    */
   async archiveProject(projectId) {
     return await put(`/projects/${projectId}/archive`)
+  },
+
+  /**
+   * 重试失败的项目
+   * @param {string} projectId - 项目ID
+   * @returns {Promise} 重试结果
+   */
+  async retryProject(projectId) {
+    return await post(`/projects/${projectId}/retry`)
+  },
+
+  /**
+   * 获取项目状态详情
+   * @param {string} projectId - 项目ID
+   * @returns {Promise} 项目状态详情
+   */
+  async getProjectStatus(projectId) {
+    return await get(`/projects/${projectId}/status`)
   }
 }
 

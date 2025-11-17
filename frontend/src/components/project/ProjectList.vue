@@ -80,15 +80,27 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" label="状态" width="120">
           <template #default="{ row }">
-            <el-tag
-              :type="projectsStore.getStatusType(row.status)"
-              size="small"
-              effect="plain"
-            >
-              {{ projectsStore.getStatusText(row.status) }}
-            </el-tag>
+            <div class="status-cell">
+              <el-tag
+                :type="projectsStore.getStatusType(row.status)"
+                size="small"
+                effect="plain"
+              >
+                {{ projectsStore.getStatusText(row.status) }}
+              </el-tag>
+              <!-- 进度条 -->
+              <div
+                v-if="row.processing_progress > 0 && row.processing_progress < 100"
+                class="progress-bar"
+              >
+                <div
+                  class="progress-fill"
+                  :style="{ width: row.processing_progress + '%' }"
+                ></div>
+              </div>
+            </div>
           </template>
         </el-table-column>
 
@@ -135,7 +147,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button
@@ -148,7 +160,17 @@
                 查看
               </el-button>
               <el-button
-                v-if="row.status !== 'archived'"
+                v-if="row.status === 'failed'"
+                type="warning"
+                size="small"
+                :icon="RefreshRight"
+                link
+                @click.stop="$emit('retry-project', row)"
+              >
+                重试
+              </el-button>
+              <el-button
+                v-if="projectsStore.isEditable(row)"
                 type="default"
                 size="small"
                 :icon="Edit"
@@ -158,7 +180,7 @@
                 编辑
               </el-button>
               <el-button
-                v-if="row.status !== 'archived'"
+                v-if="projectsStore.isArchivable(row)"
                 type="warning"
                 size="small"
                 link
@@ -198,6 +220,7 @@ import {
   List,
   View,
   Edit,
+  RefreshRight,
 } from '@element-plus/icons-vue'
 import ProjectCard from './ProjectCard.vue'
 import { useProjectsStore } from '@/stores/projects'
@@ -234,6 +257,7 @@ const emit = defineEmits([
   'edit-project',
   'archive-project',
   'view-project',
+  'retry-project',
   'page-change',
   'size-change',
   'row-click',
@@ -412,6 +436,29 @@ defineExpose({
   min-width: 0;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+/* 状态单元格和进度条 */
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  align-items: flex-start;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
+  transition: width 0.3s ease;
+  border-radius: var(--radius-full);
 }
 
 /* 操作按钮样式 */

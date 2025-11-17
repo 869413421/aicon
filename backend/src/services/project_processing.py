@@ -495,6 +495,94 @@ class ProjectProcessingService(SessionManagedService):
             await self.mark_failed_safely(project_id, owner_id, error_message)
             raise
 
+    async def get_processing_status(self, project_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取项目处理状态详情
+
+        查询项目的处理进度和详细信息，用于状态轮询和进度显示。
+        包含处理统计数据和错误信息。
+
+        Args:
+            project_id: 项目ID
+
+        Returns:
+            Dict[str, Any] | None: 处理状态详情，包含：
+                - success: 处理是否成功
+                - chapters_count: 章节数量
+                - paragraphs_count: 段落数量
+                - sentences_count: 句子数量
+                - message: 状态描述
+                - error_message: 错误信息（如果有）
+                - progress: 处理进度百分比
+
+        Raises:
+            NotFoundError: 当项目不存在时
+        """
+        try:
+            # 使用外部数据库会话查询项目信息
+            async with get_async_db() as db:
+                project = await db.get(Project, project_id)
+                if not project:
+                    raise NotFoundError("项目不存在", resource_type="project", resource_id=project_id)
+
+                # 根据项目状态构建响应
+                response = {
+                    "success": True,
+                    "chapters_count": project.chapter_count or 0,
+                    "paragraphs_count": project.paragraph_count or 0,
+                    "sentences_count": project.sentence_count or 0,
+                    "word_count": project.word_count or 0,
+                    "status": project.status,
+                    "progress": project.processing_progress or 0,
+                    "message": self._get_status_message(project.status),
+                    "error_message": project.error_message,
+                    "created_at": project.created_at.isoformat() if project.created_at else None,
+                    "updated_at": project.updated_at.isoformat() if project.updated_at else None,
+                    "completed_at": project.completed_at.isoformat() if project.completed_at else None,
+                }
+
+                logger.debug(f"项目 {project_id} 状态查询: {project.status} ({response['progress']}%)")
+                return response
+
+        except Exception as e:
+            logger.error(f"获取项目 {project_id} 处理状态失败: {e}")
+            # 发生错误时返回基本信息而不是抛出异常
+            return {
+                "success": False,
+                "chapters_count": 0,
+                "paragraphs_count": 0,
+                "sentences_count": 0,
+                "word_count": 0,
+                "status": "unknown",
+                "progress": 0,
+                "message": "状态查询失败",
+                "error_message": str(e),
+                "created_at": None,
+                "updated_at": None,
+                "completed_at": None,
+            }
+
+    def _get_status_message(self, status: str) -> str:
+        """
+        获取状态对应的描述消息
+
+        Args:
+            status: 项目状态
+
+        Returns:
+            str: 状态描述消息
+        """
+        status_messages = {
+            "uploaded": "文件已上传，等待处理",
+            "parsing": "正在解析文件内容",
+            "parsed": "文件解析完成",
+            "generating": "正在生成内容",
+            "completed": "项目已完成",
+            "failed": "处理失败",
+            "archived": "项目已归档"
+        }
+        return status_messages.get(status, f"未知状态: {status}")
+
     async def retry_failed_project(self, project_id: str, owner_id: str) -> Dict[str, Any]:
         """
         重试失败的项目处理
