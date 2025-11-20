@@ -17,7 +17,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.exceptions import BusinessLogicError, NotFoundError
+from src.core.exceptions import NotFoundError
 from src.core.logging import get_logger
 from src.models.chapter import Chapter
 from src.models.paragraph import Paragraph, ParagraphAction

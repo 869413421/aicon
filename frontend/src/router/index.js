@@ -92,6 +92,12 @@ const routes = [
         name: 'ChapterManagement',
         component: ChapterManagement,
         props: true
+      },
+      {
+        path: ':projectId/chapters/:chapterId/paragraphs',
+        name: 'ParagraphManagement',
+        component: () => import('@/views/chapters/ParagraphManagement.vue'),
+        props: true
       }
     ]
   },

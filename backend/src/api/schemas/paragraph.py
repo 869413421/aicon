@@ -9,10 +9,12 @@ from pydantic import BaseModel, Field
 from .base import PaginatedResponse
 
 
+
+
 class ParagraphCreate(BaseModel):
     """创建段落请求模型"""
     content: str = Field(..., min_length=1, description="段落内容")
-    order_index: int = Field(..., ge=1, description="在章节中的顺序")
+    order_index: Optional[int] = Field(None, ge=1, description="在章节中的顺序，不提供则自动计算")
 
     model_config = {
         "json_schema_extra": {
@@ -22,6 +24,7 @@ class ParagraphCreate(BaseModel):
             }
         }
     }
+
 
 
 class ParagraphUpdate(BaseModel):

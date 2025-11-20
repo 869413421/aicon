@@ -119,7 +119,6 @@ class ChapterService(BaseService):
             await self.flush()  # 获取数据库生成的ID
 
             # 更新段落数据中的章节ID并创建段落
-            paragraph_ids = []
             if paragraphs_data:
                 for paragraph_data in paragraphs_data:
                     paragraph_data["chapter_id"] = chapter.id

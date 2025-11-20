@@ -128,6 +128,10 @@
                 <el-icon><View /></el-icon>
                 查看
               </el-button>
+              <el-button size="small" @click="handleManageParagraphs(chapter)">
+                <el-icon><List /></el-icon>
+                段落
+              </el-button>
               <el-button
                 v-if="!chapter.is_confirmed && chapter.status === 'completed'"
                 size="small"
@@ -208,6 +212,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Document,
@@ -217,7 +222,8 @@ import {
   View,
   Edit,
   Delete,
-  Check
+  Check,
+  List
 } from '@element-plus/icons-vue'
 import chaptersService from '@/services/chapters'
 import ChapterForm from './ChapterForm.vue'
@@ -233,6 +239,8 @@ const props = defineProps({
 
 // Emits
 const emit = defineEmits(['close'])
+
+const router = useRouter()
 
 // 响应式数据
 const loading = ref(false)
@@ -408,6 +416,16 @@ const handleConfirmChapter = async (chapter) => {
     ElMessage.error('确认章节失败')
     console.error('确认章节失败:', error)
   }
+}
+
+const handleManageParagraphs = (chapter) => {
+  router.push({
+    name: 'ParagraphManagement',
+    params: {
+      projectId: props.projectId,
+      chapterId: chapter.id
+    }
+  })
 }
 
 const handleChapterSubmit = async (chapterData) => {

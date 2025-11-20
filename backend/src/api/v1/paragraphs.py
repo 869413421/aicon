@@ -96,14 +96,22 @@ async def create_paragraph(
     project_service = ProjectService(db)
     await project_service.get_project_by_id(chapter.project_id, current_user.id)
 
+    # 如果未提供 order_index，自动计算
+    order_index = paragraph_data.order_index
+    if order_index is None:
+        # 获取当前章节的段落数量，新段落排在最后
+        existing_paragraphs = await paragraph_service.get_chapter_paragraphs(chapter_id)
+        order_index = len(existing_paragraphs) + 1
+
     # 创建段落
     paragraph = await paragraph_service.create_paragraph(
         chapter_id=chapter_id,
         content=paragraph_data.content,
-        order_index=paragraph_data.order_index
+        order_index=order_index
     )
 
     return ParagraphResponse.from_dict(paragraph.to_dict())
+
 
 
 @router.put("/{paragraph_id}", response_model=ParagraphResponse)
@@ -169,30 +177,51 @@ async def batch_update_paragraphs(
     await project_service.get_project_by_id(chapter.project_id, current_user.id)
 
     updated_paragraphs = []
+    deleted_count = 0
 
     for item in batch_data.paragraphs:
-        # 准备更新数据
-        updates = {}
-        if item.content is not None:
-            updates['content'] = item.content
-        if item.action is not None:
-            updates['action'] = item.action
-        if item.edited_content is not None:
-            updates['edited_content'] = item.edited_content
-        if item.ignore_reason is not None:
-            updates['ignore_reason'] = item.ignore_reason
+        # 如果 action 是 delete，执行物理删除
+        if item.action == 'delete':
+            try:
+                # 获取段落以验证它属于该章节
+                paragraph = await paragraph_service.get_paragraph_by_id(item.id)
+                if paragraph.chapter_id == chapter_id:
+                    await paragraph_service.delete_paragraph(
+                        paragraph_id=item.id,
+                        chapter_id=chapter_id
+                    )
+                    deleted_count += 1
+                    logger.info(f"物理删除段落: {item.id}")
+            except Exception as e:
+                logger.error(f"删除段落 {item.id} 失败: {str(e)}")
+                # 继续处理其他段落
+                continue
+        else:
+            # 准备更新数据
+            updates = {}
+            if item.content is not None:
+                updates['content'] = item.content
+            if item.action is not None:
+                updates['action'] = item.action
+            if item.edited_content is not None:
+                updates['edited_content'] = item.edited_content
+            if item.ignore_reason is not None:
+                updates['ignore_reason'] = item.ignore_reason
 
-        if updates:
-            # 更新段落
-            updated_paragraph = await paragraph_service.update_paragraph(
-                paragraph_id=item.id,
-                chapter_id=chapter_id,
-                **updates
-            )
-            updated_paragraphs.append(updated_paragraph)
+            if updates:
+                # 更新段落
+                updated_paragraph = await paragraph_service.update_paragraph(
+                    paragraph_id=item.id,
+                    chapter_id=chapter_id,
+                    **updates
+                )
+                updated_paragraphs.append(updated_paragraph)
+
+    logger.info(f"批量操作完成: 更新 {len(updated_paragraphs)} 个段落, 删除 {deleted_count} 个段落")
 
     # 转换为响应模型
     return [ParagraphResponse.from_dict(p.to_dict()) for p in updated_paragraphs]
+
 
 
 @router.delete("/{paragraph_id}", response_model=ParagraphDeleteResponse)

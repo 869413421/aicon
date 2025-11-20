@@ -20,21 +20,16 @@
         <el-button
           v-if="!chapter.is_confirmed && chapter.status === 'completed'"
           type="success"
-          @click="handleConfirm"
+          @click="handleConfirmChapter"
         >
           <el-icon><Check /></el-icon>
           确认章节
         </el-button>
-        <el-button
-          v-if="!chapter.is_confirmed"
-          type="primary"
-          @click="handleEdit"
-        >
-          <el-icon><Edit /></el-icon>
-          编辑
+        <el-button type="primary" plain @click="handleManageParagraphs">
+          <el-icon><List /></el-icon>
+          段落
         </el-button>
         <el-button @click="$emit('close')">
-          <el-icon><Close /></el-icon>
           关闭
         </el-button>
       </div>
@@ -83,8 +78,8 @@
               <el-icon><Timer /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ formatDateTime(chapter.created_at) }}</div>
-              <div class="stat-label">创建时间</div>
+              <div class="stat-value">{{ formatDuration(chapter.video_duration) }}</div>
+              <div class="stat-label">视频时长</div>
             </div>
           </div>
         </el-col>
@@ -166,20 +161,20 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Check,
-  Edit,
-  Close,
   Document,
   Collection,
   ChatLineSquare,
-  Timer
+  Timer,
+  List
 } from '@element-plus/icons-vue'
-import chaptersService from '@/services/chapters'
 
-// Props
+const router = useRouter()
+
 const props = defineProps({
   chapter: {
     type: Object,
@@ -187,30 +182,10 @@ const props = defineProps({
   }
 })
 
-// Emits
-const emit = defineEmits(['edit', 'close'])
+const emit = defineEmits(['close', 'refresh'])
 
-// 响应式数据
 const confirmDialogVisible = ref(false)
 const confirming = ref(false)
-
-// 状态映射
-const statusMap = {
-  pending: { type: 'info', text: '待处理' },
-  confirmed: { type: 'success', text: '已确认' },
-  processing: { type: 'warning', text: '处理中' },
-  completed: { type: 'success', text: '已完成' },
-  failed: { type: 'danger', text: '失败' }
-}
-
-// 计算属性
-const getStatusType = computed(() => {
-  return statusMap[props.chapter.status]?.type || 'info'
-})
-
-const getStatusText = computed(() => {
-  return statusMap[props.chapter.status]?.text || props.chapter.status
-})
 
 // 方法
 const formatNumber = (num) => {
@@ -231,32 +206,57 @@ const formatDateTime = (dateStr) => {
 
 const formatDuration = (seconds) => {
   if (!seconds) return '-'
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+  
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }
+  return `${minutes}:${String(secs).padStart(2, '0')}`
 }
 
-const handleEdit = () => {
-  emit('edit', props.chapter)
+const getStatusType = (status) => {
+  const statusMap = {
+    pending: 'info',
+    processing: 'warning',
+    completed: 'success',
+    failed: 'danger'
+  }
+  return statusMap[status] || 'info'
 }
 
-const handleConfirm = () => {
-  confirmDialogVisible.value = true
+const getStatusText = (status) => {
+  const statusMap = {
+    pending: '待处理',
+    processing: '处理中',
+    completed: '已完成',
+    failed: '失败'
+  }
+  return statusMap[status] || status
+}
+
+const handleManageParagraphs = () => {
+  router.push({
+    name: 'ParagraphManagement',
+    params: {
+      projectId: props.chapter.project_id,
+      chapterId: props.chapter.id
+    }
+  })
 }
 
 const handleConfirmChapter = async () => {
+  confirmDialogVisible.value = false
+  confirming.value = true
+  
   try {
-    confirming.value = true
-    await chaptersService.confirmChapter(props.chapter.id)
+    // TODO: 调用确认章节的API
     ElMessage.success('章节确认成功')
-    confirmDialogVisible.value = false
-    // 更新章节状态
-    props.chapter.is_confirmed = true
-    props.chapter.status = 'confirmed'
-    props.chapter.confirmed_at = new Date().toISOString()
+    emit('refresh')
   } catch (error) {
-    ElMessage.error('确认章节失败')
     console.error('确认章节失败:', error)
+    ElMessage.error('确认章节失败')
   } finally {
     confirming.value = false
   }
