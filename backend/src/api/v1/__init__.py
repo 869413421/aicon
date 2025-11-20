@@ -25,6 +25,7 @@ from .users import router as users_router
 from .projects import router as projects_router
 from .files import router as files_router
 from .chapters import router as chapters_router
+from .paragraphs import router as paragraphs_router
 
 # 注册路由
 api_router.include_router(auth_router, prefix="/auth", tags=["认证"])
@@ -32,5 +33,6 @@ api_router.include_router(users_router, prefix="/users", tags=["用户管理"])
 api_router.include_router(files_router, prefix="/files", tags=["文件管理"])
 api_router.include_router(projects_router, prefix="/projects", tags=["项目管理"])
 api_router.include_router(chapters_router, prefix="/chapters", tags=["章节管理"])
+api_router.include_router(paragraphs_router, prefix="/paragraphs", tags=["段落管理"])
 
 __all__ = ["api_router"]

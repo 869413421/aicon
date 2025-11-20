@@ -89,6 +89,11 @@ class FileInfo(BaseModel):
     }
 
 
+class FileResponse(FileInfo):
+    """文件响应模型"""
+    pass
+
+
 class FileListResponse(PaginatedResponse):
     """文件列表响应模型"""
     files: List[FileInfo] = Field(..., description="文件列表")
@@ -111,6 +116,23 @@ class FileListResponse(PaginatedResponse):
                 "size": 50,
                 "total_pages": 1,
                 "orphaned_count": 2
+            }
+        }
+    }
+
+
+class FileDeleteResponse(BaseModel):
+    """文件删除响应模型"""
+    success: bool = Field(True, description="删除是否成功")
+    message: str = Field(..., description="响应消息")
+    file_id: str = Field(..., description="被删除的文件ID")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "success": True,
+                "message": "文件删除成功",
+                "file_id": "uuid-string"
             }
         }
     }
@@ -318,7 +340,9 @@ __all__ = [
     "FileUploadResponse",
     "FileUploadResult",
     "FileInfo",
+    "FileResponse",
     "FileListResponse",
+    "FileDeleteResponse",
     "FileCleanupResponse",
     "FileStorageUsageResponse",
     "FileBatchDeleteResponse",

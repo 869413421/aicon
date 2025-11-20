@@ -26,86 +26,62 @@ from .auth import (
     TokenResponse,
     TokenVerifyResponse,
     MessageResponse as AuthMessageResponse,
+    UserResponse,
 )
-
-# 导入用户相关模型
-from .user import (
-    UserUpdateRequest,
-    PasswordChangeRequest,
-    UserResponse as UserResponseDetailed,
-    UserStatsResponse,
-    UserDeleteRequest,
-    PasswordChangeResponse,
-    AvatarUploadResponse,
-    AvatarDeleteResponse,
-    AvatarInfoResponse,
+from .base import ErrorResponse, PaginatedResponse, SuccessResponse
+from .chapter import (
+    ChapterConfirmResponse,
+    ChapterCreate,
+    ChapterDeleteResponse,
+    ChapterListResponse,
+    ChapterResponse,
+    ChapterStatus,
+    ChapterStatusResponse,
+    ChapterUpdate,
 )
-
-# 导入项目相关模型
+from .file import FileDeleteResponse, FileResponse, FileUploadResponse
+from .paragraph import (
+    ParagraphBatchUpdate,
+    ParagraphBatchUpdateItem,
+    ParagraphCreate,
+    ParagraphDeleteResponse,
+    ParagraphListResponse,
+    ParagraphResponse,
+    ParagraphUpdate,
+)
 from .project import (
     ProjectCreate,
-    ProjectUpdate,
-    ProjectResponse,
-    ProjectListResponse,
     ProjectDeleteResponse,
-    ProjectArchiveResponse,
-    ProjectStatus,
+    ProjectListResponse,
+    ProjectResponse,
+    ProjectUpdate,
 )
+from .user import PasswordChangeRequest, UserStatsResponse, UserUpdateRequest
 
-# 导入文件相关模型
-from .file import (
-    FileUploadResponse,
-    FileUploadResult,
-    FileInfo,
-    FileListResponse,
-    FileCleanupResponse,
-    FileStorageUsageResponse,
-    FileBatchDeleteResponse,
-    FileIntegrityCheckResult,
-    FileIntegrityCheckResponse,
-    FileType,
-)
-
-# 统一导出所有模型
 __all__ = [
-    # 基础模型
-    "MessageResponse",
+    # Base
     "SuccessResponse",
-    "PaginatedResponse",
     "ErrorResponse",
-    "ValidationErrorResponse",
-
-    # 认证模型
-    "UserRegister",
-    "UserLogin",
-    "UserResponse",
+    "PaginatedResponse",
+    # Auth
+    "RegisterRequest",
+    "LoginRequest",
+    "LoginResponse",
     "TokenResponse",
-    "TokenVerifyResponse",
-
-    # 用户模型
+    "RefreshTokenRequest",
+    "UserResponse",
+    # User
     "UserUpdateRequest",
     "PasswordChangeRequest",
     "UserStatsResponse",
-    "UserDeleteRequest",
-    "PasswordChangeResponse",
-    "AvatarUploadResponse",
-    "AvatarDeleteResponse",
-    "AvatarInfoResponse",
-
-    # 项目模型
+    # Project
     "ProjectCreate",
     "ProjectUpdate",
+    "ProjectResponse",
     "ProjectListResponse",
     "ProjectDeleteResponse",
-    "ProjectArchiveResponse",
-    "ProjectStatus",
-
-    # 文件模型
+    # File
     "FileUploadResponse",
-    "FileUploadResult",
-    "FileInfo",
-    "FileListResponse",
-    "FileCleanupResponse",
     "FileStorageUsageResponse",
     "FileBatchDeleteResponse",
     "FileIntegrityCheckResult",
