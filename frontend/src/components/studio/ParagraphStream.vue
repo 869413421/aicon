@@ -40,6 +40,7 @@
           <el-radio-group
             :model-value="paragraph.action || 'keep'"
             @update:model-value="(val) => handleActionChange(paragraph.id, val)"
+            @click.stop
             size="small"
           >
             <el-radio-button label="keep">保留</el-radio-button>

@@ -92,23 +92,23 @@
           </el-dropdown>
         </div>
       </div>
-      
-      <!-- 加载更多按钮 -->
-      <div v-if="hasMore && !loading" class="load-more">
-        <el-button
-          size="small"
-          @click="handleLoadMore"
-          :loading="loading"
-        >
-          加载更多章节
-        </el-button>
-      </div>
+    </div>
+    
+    <!-- 加载更多按钮 - 移到列表外部 -->
+    <div v-if="hasMore && !loading" class="load-more">
+      <el-button
+        size="small"
+        @click="handleLoadMore"
+        :loading="loading"
+      >
+        加载更多章节
+      </el-button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { Search, Plus, MoreFilled, Edit, Delete } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -173,36 +173,8 @@ const filteredChapters = computed(() => {
   return result
 })
 
-// 滚动位置保存
-let savedScrollPosition = null
-
-// 监听chapters变化，恢复滚动位置
-watch(() => props.chapters.length, (newLength, oldLength) => {
-  if (savedScrollPosition !== null && newLength > oldLength) {
-    // 章节数量增加了，说明加载了更多
-    nextTick(() => {
-      const scrollContainer = document.querySelector('.nav-list')
-      if (scrollContainer) {
-        scrollContainer.scrollTop = savedScrollPosition
-        savedScrollPosition = null
-      }
-    })
-  }
-})
-
-// 处理加载更多，保持滚动位置
+// 处理加载更多
 const handleLoadMore = () => {
-  // 获取滚动容器
-  const scrollContainer = document.querySelector('.nav-list')
-  if (!scrollContainer) {
-    emit('load-more')
-    return
-  }
-  
-  // 保存当前滚动位置（保存底部位置）
-  savedScrollPosition = scrollContainer.scrollTop
-  
-  // 触发加载
   emit('load-more')
 }
 </script>

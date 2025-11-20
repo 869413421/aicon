@@ -249,7 +249,14 @@ const handleParagraphSelect = (paragraphId) => {
 }
 
 const handleParagraphUpdate = (paragraphId, updates) => {
-  // 记录修改
+  // 找到段落对象并更新
+  const paragraph = paragraphs.value.find(p => p.id === paragraphId)
+  if (paragraph) {
+    // 直接更新段落对象以触发响应式更新
+    Object.assign(paragraph, updates)
+  }
+  
+  // 同时记录到修改Map中
   modifiedParagraphs.value.set(paragraphId, {
     ...modifiedParagraphs.value.get(paragraphId),
     ...updates
@@ -382,6 +389,54 @@ const handleChapterSubmit = async (chapterData) => {
 }
 
 const handleSave = async () => {
+  if (!hasChanges.value || !selectedChapterId.value) return
+  
+  try {
+    saving.value = true
+    
+    // 分离编辑和删除的段落
+    const toUpdate = []
+    const toDelete = []
+    
+    modifiedParagraphs.value.forEach((changes, paragraphId) => {
+      if (changes.action === 'delete') {
+        // 标记为删除
+        toDelete.push(paragraphId)
+      } else if (changes.action === 'edit' && changes.edited_content) {
+        // 更新内容
+        toUpdate.push({
+          id: paragraphId,
+          content: changes.edited_content
+        })
+      }
+    })
+    
+    // 执行删除操作（物理删除）
+    for (const paragraphId of toDelete) {
+      await paragraphsService.deleteParagraph(paragraphId)
+    }
+    
+    // 执行更新操作
+    for (const update of toUpdate) {
+      await paragraphsService.updateParagraph(update.id, {
+        content: update.content
+      })
+    }
+    
+    const message = `保存成功：${toUpdate.length > 0 ? `编辑${toUpdate.length}个` : ''}${toUpdate.length > 0 && toDelete.length > 0 ? '，' : ''}${toDelete.length > 0 ? `删除${toDelete.length}个` : ''}`
+    ElMessage.success(message || '保存成功')
+    
+    // 清空修改记录
+    modifiedParagraphs.value.clear()
+    
+    // 重新加载段落列表
+    await loadParagraphs(selectedChapterId.value)
+  } catch (error) {
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
 }
 
 const handleBack = () => {
