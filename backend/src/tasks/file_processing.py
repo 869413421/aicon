@@ -80,11 +80,30 @@ def process_uploaded_file(self, project_id: str, owner_id: str) -> Dict[str, Any
     """
     logger.info(f"Celery任务开始: process_uploaded_file (project_id={project_id})")
 
-    # 使用asyncio.run运行异步函数
-    result = asyncio.run(project_processing_service.process_file_task(project_id, owner_id))
+    # 使用辅助函数运行异步任务
+    result = run_async_task(project_processing_service.process_file_task(project_id, owner_id))
 
     logger.info(f"Celery任务成功: process_uploaded_file (project_id={project_id})")
     return result
+
+
+def run_async_task(coro):
+    """
+    运行异步任务的辅助函数，确保在新的事件循环中重置数据库连接
+    
+    Args:
+        coro: 要运行的协程对象
+        
+    Returns:
+        协程的执行结果
+    """
+    async def _wrapper():
+        from src.core.database import close_database_connections
+        # 在新的事件循环中，必须重置数据库连接，因为旧的连接绑定在已关闭的循环上
+        await close_database_connections()
+        return await coro
+
+    return asyncio.run(_wrapper())
 
 
 @celery_app.task(
@@ -111,8 +130,8 @@ def retry_failed_project(self, project_id: str, owner_id: str) -> Dict[str, Any]
     logger.info(f"Celery任务开始: retry_failed_project (project_id={project_id})")
 
     try:
-        # 使用asyncio.run运行异步函数
-        result = asyncio.run(project_processing_service.retry_failed_project(project_id, owner_id))
+        # 使用辅助函数运行异步任务
+        result = run_async_task(project_processing_service.retry_failed_project(project_id, owner_id))
 
         if result.get("success", False):
             logger.info(f"Celery任务成功: retry_failed_project (project_id={project_id})")
