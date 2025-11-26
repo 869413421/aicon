@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 class ChapterStatus(str, Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
+    GENERATING_PROMPTS = "generating_prompts"  # 生成提示词中
+    PROMPTS_GENERATED = "prompts_generated"  # 提示词已生成
+    GENERATING_VIDEO = "generating_video"  # 生成视频中
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -31,7 +34,8 @@ class Chapter(BaseModel):
     __tablename__ = 'chapters'
 
     # 基础字段 (ID, created_at, updated_at 继承自 BaseModel)
-    project_id = Column(PostgreSQLUUID(as_uuid=True), ForeignKey('projects.id'), nullable=False, index=True, comment="项目外键")
+    project_id = Column(PostgreSQLUUID(as_uuid=True), ForeignKey('projects.id'), nullable=False, index=True,
+                        comment="项目外键")
     title = Column(String(500), nullable=False, comment="章节标题")
     content = Column(Text, nullable=False, comment="章节原始内容")
 

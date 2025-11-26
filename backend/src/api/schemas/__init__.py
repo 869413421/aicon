@@ -35,7 +35,6 @@ from .chapter import (
     ChapterDeleteResponse,
     ChapterListResponse,
     ChapterResponse,
-    ChapterStatus,
     ChapterStatusResponse,
     ChapterUpdate,
 )

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from src.models.project import ProjectStatus
 from .base import PaginatedResponse, UUIDMixin
 
 
@@ -258,27 +259,6 @@ class ProjectStatusResponse(BaseModel):
             }
         }
     }
-
-
-# 项目状态枚举
-class ProjectStatus(str):
-    """项目状态枚举"""
-    DRAFT = "draft"  # 草稿
-    UPLOADING = "uploading"  # 上传中
-    PROCESSING = "processing"  # 处理中
-    COMPLETED = "completed"  # 已完成
-    FAILED = "failed"  # 失败
-    ARCHIVED = "archived"  # 已归档
-
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if v not in cls.__dict__.values():
-            raise ValueError(f"无效的项目状态: {v}")
-        return v
 
 
 __all__ = [

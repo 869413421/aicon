@@ -201,29 +201,6 @@ class ChapterStatusResponse(BaseModel):
     }
 
 
-# 章节状态枚举
-class ChapterStatus(str):
-    """章节状态枚举"""
-    PENDING = "pending"  # 待处理
-    CONFIRMED = "confirmed"  # 已确认
-    GENERATING_PROMPTS = "generating_prompts" # 生成提示词中
-    PROMPTS_GENERATED = "prompts_generated"  # 提示词已生成
-    GENERATING_VIDEO = "generating_video"  # 生成视频中
-    PROCESSING = "processing"  # 处理中
-    COMPLETED = "completed"  # 已完成
-    FAILED = "failed"  # 失败
-
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if v not in cls.__dict__.values():
-            raise ValueError(f"无效的章节状态: {v}")
-        return v
-
-
 __all__ = [
     "ChapterCreate",
     "ChapterUpdate",
@@ -232,5 +209,4 @@ __all__ = [
     "ChapterDeleteResponse",
     "ChapterConfirmResponse",
     "ChapterStatusResponse",
-    "ChapterStatus",
 ]

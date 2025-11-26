@@ -8,25 +8,21 @@ AI导演引擎 - 提示词生成服务
 - 风格预设管理
 
 设计原则：
-- 使用BaseService统一管理数据库会话
 - 异常处理遵循统一策略
 - 方法职责单一，保持简洁
 """
 
-from typing import List, Dict, Optional
-import json
-import httpx
+from typing import List, Dict, Optional, Any, Coroutine
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.exceptions import BusinessLogicError
 from src.core.logging import get_logger
 from src.services import ChapterService
-from src.services.base import BaseService
+from src.services.base import SessionManagedService
 
 logger = get_logger(__name__)
 
 
-class PromptService(BaseService):
+class PromptService(SessionManagedService):
     """
     提示词生成服务
     
@@ -42,22 +38,14 @@ class PromptService(BaseService):
         "ink": "Chinese ink painting style, watercolor, traditional art, artistic, abstract."
     }
 
-    def __init__(self, db_session: Optional[AsyncSession] = None):
-        """
-        初始化提示词生成服务
-        
-        Args:
-            db_session: 可选的数据库会话
-        """
-        super().__init__(db_session)
-        logger.debug(f"PromptService 初始化完成")
+
 
     async def generate_prompts_batch(
             self,
             chapter_id: str,
             api_key_id: str,
             style: str = "cinematic"
-    ) -> List[Dict[str, str]]:
+    ) -> None:
         """
         批量生成提示词
         
