@@ -139,7 +139,7 @@ class BaseService:
             logger.error(f"{self.__class__.__name__} 刷新对象失败: {e}")
             raise
 
-    def execute(self, query, params: "Optional[Dict[str, Any]]" = None):
+    async def execute(self, query, params: "Optional[Dict[str, Any]]" = None):
         """
         执行SQL查询
 
@@ -150,7 +150,7 @@ class BaseService:
         Returns:
             查询结果
         """
-        return self.db_session.execute(query, params)
+        return await self.db_session.execute(query, params)
 
     async def add(self, obj):
         """
@@ -159,7 +159,7 @@ class BaseService:
         Args:
             obj: 要添加的数据库对象
         """
-        self.db_session.add(obj)
+        await self.db_session.add(obj)
         logger.debug(f"{self.__class__.__name__} 添加对象到会话")
 
     async def delete(self, obj):
