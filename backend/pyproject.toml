@@ -28,7 +28,6 @@ dependencies = [
     "structlog>=23.2.0",
     "loguru>=0.7.2",
     "httpx>=0.25.0",
-    "python-magic>=0.4.27",
     "pillow>=10.0.0",
     "cryptography>=41.0.0",
     "psutil>=5.9.0",
@@ -39,6 +38,7 @@ dependencies = [
     "langchain-text-splitters>=1.0.0",
     "python-magic-bin>=0.4.14",
     "openai>=2.8.1",
+    "email-validator>=2.3.0",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
