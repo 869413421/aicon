@@ -4,6 +4,7 @@ from .openai_provider import OpenAIProvider
 from .deepseek_provider import DeepSeekProvider
 from .volcengine_provider import VolcengineProvider
 from .siliconflow_provider import SiliconFlowProvider
+from .custom_provider import CustomProvider
 from .base import BaseLLMProvider
 
 
@@ -22,5 +23,8 @@ class ProviderFactory:
                 return VolcengineProvider(api_key, kwargs.get("max_concurrency", 5))
             case "siliconflow":
                 return SiliconFlowProvider(api_key, kwargs.get("max_concurrency", 5))
+            case "custom":
+                return CustomProvider(api_key, kwargs.get("max_concurrency", 5),
+                                      kwargs.get("base_url", "https://api.siliconflow.cn/v1"))
             case _:
                 raise ValueError(f"未知 provider: {provider}")

@@ -186,7 +186,7 @@ export const apiKeyUtils = {
             { label: '火山引擎', value: 'volcengine' },
             { label: 'deepseek', value: 'deepseek' },
             { label: '硅基流动', value: 'siliconflow' },
-            // { label: '自定义', value: 'custom' }
+            { label: '自定义', value: 'custom' }
         ]
     },
 

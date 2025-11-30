@@ -190,6 +190,7 @@ class PromptService(SessionManagedService):
             provider=api_key.provider,
             api_key=api_key.get_api_key(),
             max_concurrency=5,
+            base_url=api_key.base_url if api_key.base_url else None,
         )
 
         # 建立并发信号量（限制同一时刻的 LLM 请求数量）

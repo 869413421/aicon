@@ -21,8 +21,6 @@ from openai import RateLimitError
 logger = get_logger(__name__)
 
 
-
-
 async def retry_with_backoff(task_fn, max_retries=5):
     """
     针对 429 限流错误加入指数退避重试机制
@@ -105,7 +103,7 @@ class ImageService(SessionManagedService):
                     .selectinload(Paragraph.chapter)
                     .selectinload(Chapter.project)
                 )
-            )
+            ).limit(1)
             result = await self.execute(stmt)
             sentences = result.scalars().all()
 
@@ -124,6 +122,7 @@ class ImageService(SessionManagedService):
                 provider=api_key.provider,
                 api_key=api_key.get_api_key(),
                 max_concurrency=5,
+                base_url=api_key.base_url if api_key.base_url else None,
             )
 
             # --- 4. 创建统一并发控制 ---

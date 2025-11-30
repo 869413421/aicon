@@ -1,5 +1,4 @@
-# src/services/providers/siliconflow_provider.py
-
+# src/services/providers/custom_provider.py
 import asyncio
 from typing import Any, Dict, List
 from openai import AsyncOpenAI
@@ -7,7 +6,7 @@ from openai import AsyncOpenAI
 from src.services.provider.base import BaseLLMProvider
 
 
-class SiliconFlowProvider(BaseLLMProvider):
+class CustomProvider(BaseLLMProvider):
     """
     纯净 SiliconFlow Provider，不含任何业务逻辑。
 
@@ -51,7 +50,7 @@ class SiliconFlowProvider(BaseLLMProvider):
             **kwargs: Any
     ):
         """
-        调用 SiliconFlow images.generate（纯粹透传）
+        调用 自定义 images.generate（纯粹透传）
         """
 
         # 用 semaphore 限制并发
