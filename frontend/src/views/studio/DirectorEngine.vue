@@ -1,5 +1,22 @@
 <template>
   <div class="director-mode">
+    <!-- 任务完成统计信息 -->
+    <div v-if="taskCompletionStats" class="task-completion-alert">
+      <el-alert
+        :title="taskCompletionStats.title"
+        :type="taskCompletionStats.type"
+        :closable="true"
+        @close="taskCompletionStats = null"
+        show-icon
+      >
+        <template #default>
+          <div class="stats-content">
+            <p v-html="taskCompletionStats.message"></p>
+          </div>
+        </template>
+      </el-alert>
+    </div>
+
     <div class="toolbar">
       <el-form :inline="true" class="filter-form">
         <el-form-item label="选择章节" style="width: 300px">
@@ -28,7 +45,7 @@
         v-model:visible="generatePromptsVisible"
         :chapter-id="selectedChapterId"
         :api-keys="apiKeys"
-        @generate-success="handleGenerateSuccess"
+        @generate-success="(taskId) => handleGenerateSuccess(taskId, 'prompts')"
       />
       
       <!-- 重新生成提示词对话框 -->
@@ -44,26 +61,12 @@
         v-model:visible="batchGenerateImagesVisible"
         :sentences-ids="singleImageSentenceId ? [singleImageSentenceId] : currentChapterSentenceIds"
         :api-keys="apiKeys"
-        @generate-success="handleGenerateSuccess"
+        @generate-success="(taskId) => handleGenerateSuccess(taskId, 'images')"
         @update:visible="(val) => { if(!val) singleImageSentenceId = null }"
       />
     </div>
 
-    <!-- 任务状态提示 -->
-    <div v-if="isPolling" class="task-status-bar">
-      <el-alert
-        :title="`任务执行中... 状态: ${taskStatus}`"
-        type="info"
-        :closable="false"
-        show-icon
-      >
-        <template #default>
-          <el-progress :percentage="taskStatus === 'SUCCESS' ? 100 : 50" :status="taskStatus === 'SUCCESS' ? 'success' : ''" />
-        </template>
-      </el-alert>
-    </div>
-
-    <div class="content-area" v-loading="loading">
+    <div class="content-area" v-loading="loading || isPolling" :element-loading-text="loadingText">
       <el-empty v-if="!sentences.length" description="请选择章节以开始" />
       
       <div v-else class="card-grid">
@@ -94,7 +97,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import { useDirectorEngine } from '@/composables/useDirectorEngine'
 import { useTaskPoller } from '@/composables/useTaskPoller'
 import GeneratePromptsDialog from '@/components/studio/GeneratePromptsDialog.vue'
@@ -131,8 +134,20 @@ const {
 const {
   taskStatus,
   isPolling,
+  taskStatistics,
   startPolling
 } = useTaskPoller()
+
+// 任务完成统计信息
+const taskCompletionStats = ref(null)
+
+// 加载文本
+const loadingText = computed(() => {
+  if (isPolling.value) {
+    return '任务执行中，请耐心等待，不要关闭页面...'
+  }
+  return '加载中...'
+})
 
 // 提示词对话框状态
 const promptDialogVisible = ref(false)
@@ -145,13 +160,66 @@ const currentChapterSentenceIds = computed(() => {
   return sentences.value.map(sentence => sentence.id)
 })
 
+// 显示任务统计信息
+const showTaskStatistics = (statistics, taskType) => {
+  if (!statistics) return
+  
+  const { total, success, failed } = statistics
+  const isSuccess = failed === 0
+  
+  let message = ''
+  if (taskType === 'prompts') {
+    message = `<strong>提示词生成完成</strong><br/>
+      总计: ${total} 条<br/>
+      成功: <span style="color: #67C23A">${success}</span> 条<br/>
+      失败: <span style="color: #F56C6C">${failed}</span> 条`
+  } else if (taskType === 'images') {
+    message = `<strong>图片生成完成</strong><br/>
+      总计: ${total} 张<br/>
+      成功: <span style="color: #67C23A">${success}</span> 张<br/>
+      失败: <span style="color: #F56C6C">${failed}</span> 张`
+  }
+  
+  taskCompletionStats.value = {
+    title: isSuccess ? '任务成功完成' : '任务完成（部分失败）',
+    type: isSuccess ? 'success' : 'warning',
+    message
+  }
+}
+
+// 显示任务错误信息
+const showTaskError = (errorResult) => {
+  const errorMessage = errorResult?.message || '任务执行失败'
+  const errorType = errorResult?.error || 'Error'
+  
+  taskCompletionStats.value = {
+    title: '任务执行失败',
+    type: 'error',
+    message: `<strong>错误类型:</strong> ${errorType}<br/><strong>错误信息:</strong> ${errorMessage}`
+  }
+}
+
 // 处理生成成功
-const handleGenerateSuccess = async (taskId) => {
+const handleGenerateSuccess = async (taskId, taskType = 'prompts') => {
   if (taskId) {
-    startPolling(taskId, async () => {
-      ElMessage.success('任务执行完成')
-      await loadSentences()
+    // 显示任务提交提示
+    ElNotification({
+      title: '任务已提交',
+      message: '任务正在后台执行，预计需要几分钟时间，请不要关闭页面',
+      type: 'info',
+      duration: 5000
     })
+    
+    startPolling(
+      taskId,
+      async (statistics) => {
+        showTaskStatistics(statistics, taskType)
+        await loadSentences()
+      },
+      (errorResult) => {
+        showTaskError(errorResult)
+      }
+    )
   } else {
     // Fallback for immediate success (if any)
     await loadSentences()
@@ -161,10 +229,23 @@ const handleGenerateSuccess = async (taskId) => {
 // 处理重新生成成功
 const handleRegenerateSuccess = async (taskId) => {
   if (taskId) {
-    startPolling(taskId, async () => {
-      ElMessage.success('重新生成完成')
-      await loadSentences()
+    ElNotification({
+      title: '任务已提交',
+      message: '重新生成任务正在后台执行，请不要关闭页面',
+      type: 'info',
+      duration: 5000
     })
+    
+    startPolling(
+      taskId,
+      async (statistics) => {
+        showTaskStatistics(statistics, 'prompts')
+        await loadSentences()
+      },
+      (errorResult) => {
+        showTaskError(errorResult)
+      }
+    )
   } else {
     await loadSentences()
   }
@@ -198,13 +279,6 @@ const handleRegeneratePrompt = (sentence) => {
 
 // 处理重新生成图片
 const handleRegenerateImage = (sentence) => {
-  // 设置当前句子ID
-  // Actually BatchGenerateImagesDialog uses currentChapterSentenceIds prop which is computed from sentences.
-  // But for single image, we need to pass just one ID.
-  // Let's check BatchGenerateImagesDialog usage.
-  // It binds :sentences-ids="currentChapterSentenceIds".
-  // We need to change how we use this dialog.
-  
   // We will use a temporary state for single image generation
   singleImageSentenceId.value = sentence.id
   batchGenerateImagesVisible.value = true
@@ -226,6 +300,15 @@ const handlePromptSave = (updatedSentence) => {
 /* 页面基础样式 */
 .director-mode {
   padding: var(--space-lg);
+}
+
+/* 任务完成提示样式 */
+.task-completion-alert {
+  margin-bottom: var(--space-lg);
+}
+
+.stats-content {
+  line-height: 1.8;
 }
 
 /* 工具栏样式 */
@@ -273,9 +356,5 @@ const handlePromptSave = (updatedSentence) => {
     flex-direction: column;
     align-items: stretch;
   }
-}
-
-.task-status-bar {
-  margin-bottom: var(--space-lg);
 }
 </style>
