@@ -48,15 +48,12 @@ async def generate_prompts(
             resource_id=str(request.chapter_id)
         )
 
-    # if chapter.status != ChapterStatus.CONFIRMED.value:
-    #     raise BusinessLogicError(message=f"任务当前状态为：{chapter.status}")
-
     # 验证项目权限
     project_service = ProjectService(db)
     await project_service.get_project_by_id(chapter.project_id, current_user.id)
 
     # 2. 投递任务到celery
-    result = generate_prompts_task.delay(chapter.id.hex, request.api_key_id.hex, request.style)
+    result = generate_prompts_task.delay(chapter.id.hex, request.api_key_id.hex, request.style, request.model, request.custom_prompt)
 
     # 3.更新章节状态为提示词生成中
     chapter.status = "generating_prompts"
@@ -81,7 +78,7 @@ async def generate_prompts(
     """
 
     # 1. 投递任务到celery
-    result = generate_prompts_by_ids.delay(request.sentence_ids, request.api_key_id.hex, request.style)
+    result = generate_prompts_by_ids.delay(request.sentence_ids, request.api_key_id.hex, request.style, request.model, request.custom_prompt)
 
     logger.info(f"成功为章节 {request.sentence_ids} 投递提示词生成任务，任务ID: {result.id}")
     return PromptGenerateResponse(success=True, message="提示词生成任务已提交，请稍后查看结果。", task_id=result.id)

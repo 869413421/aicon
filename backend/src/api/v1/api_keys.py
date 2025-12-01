@@ -2,7 +2,7 @@
 API密钥管理API路由
 """
 
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -207,6 +207,23 @@ async def get_api_key_usage(
     }
     
     return APIKeyUsageResponse(**usage_data)
+
+
+@router.get("/{key_id}/models", response_model=List[str])
+async def get_api_key_models(
+    *,
+    current_user: User = Depends(get_current_user_required),
+    db: AsyncSession = Depends(get_db),
+    key_id: str
+):
+    """获取API密钥可用的模型列表"""
+    api_key_service = APIKeyService(db)
+    
+    # 验证key存在且属于当前用户
+    await api_key_service.get_api_key_by_id(key_id, current_user.id)
+    
+    models = await api_key_service.get_models(key_id, current_user.id)
+    return models
 
 
 __all__ = ["router"]

@@ -157,7 +157,7 @@ def retry_failed_project(self, project_id: str, owner_id: str) -> Dict[str, Any]
     retry_jitter=True,
     name="generate.generate_prompts"
 )
-def generate_prompts(self, chapter_id: str, api_key_id: str, style: str):
+def generate_prompts(self, chapter_id: str, api_key_id: str, style: str, model: str = None, custom_prompt: str = None):
     """
     为章节生成提示词的 Celery 任务
 
@@ -167,12 +167,14 @@ def generate_prompts(self, chapter_id: str, api_key_id: str, style: str):
         chapter_id: 章节ID
         api_key_id: API密钥ID
         style: 提示词风格
+        model: 模型名称
+        custom_prompt: 自定义系统提示词
 
     Returns:
         Dict[str, Any]: 生成结果，包含统计信息
     """
     logger.info(f"Celery任务开始: generate_prompts (chapter_id={chapter_id})")
-    result = run_async_task(prompt_service.generate_prompts_batch(chapter_id, api_key_id, style))
+    result = run_async_task(prompt_service.generate_prompts_batch(chapter_id, api_key_id, style, model, custom_prompt))
     logger.info(f"Celery任务成功: generate_prompts (chapter_id={chapter_id})")
     return result
 
@@ -185,7 +187,7 @@ def generate_prompts(self, chapter_id: str, api_key_id: str, style: str):
     retry_jitter=True,
     name="generate.generate_prompts_by_ids"
 )
-def generate_prompts_by_ids(self, sentence_ids: List[str], api_key_id: str, style: str):
+def generate_prompts_by_ids(self, sentence_ids: List[str], api_key_id: str, style: str, model: str = None, custom_prompt: str = None):
     """
     为章节生成提示词的 Celery 任务
 
@@ -195,12 +197,14 @@ def generate_prompts_by_ids(self, sentence_ids: List[str], api_key_id: str, styl
         sentence_ids: 句子ID列表
         api_key_id: API密钥ID
         style: 提示词风格
+        model: 模型名称
+        custom_prompt: 自定义系统提示词
 
     Returns:
         Dict[str, Any]: 生成结果
     """
     logger.info(f"Celery任务开始: generate_prompts_by_ids (sentence_ids={sentence_ids})")
-    result = run_async_task(prompt_service.generate_prompts_by_ids(sentence_ids, api_key_id, style))
+    result = run_async_task(prompt_service.generate_prompts_by_ids(sentence_ids, api_key_id, style, model, custom_prompt))
     logger.info(f"Celery任务成功: generate_prompts_by_ids (chapter_id={sentence_ids})")
     return result
 

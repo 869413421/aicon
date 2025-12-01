@@ -236,6 +236,53 @@ class APIKeyService(BaseService):
         return api_keys
 
 
+    async def get_models(self, key_id: str, user_id: str) -> List[str]:
+        """
+        获取API密钥可用的模型列表
+        
+        Args:
+            key_id: 密钥ID
+            user_id: 用户ID
+            
+        Returns:
+            模型名称列表
+        """
+        api_key = await self.get_api_key_by_id(key_id, user_id)
+        
+        provider = api_key.provider.lower()
+        
+        if provider == 'siliconflow':
+            import httpx
+            try:
+                # 获取解密后的key
+                decrypted_key = api_key.get_api_key()
+                
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        "https://api.siliconflow.cn/v1/models",
+                        headers={"Authorization": f"Bearer {decrypted_key}"},
+                        params={"type": "text"}, # 只获取文本模型
+                        timeout=10.0
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        # 假设返回格式为 {"data": [{"id": "model_name", ...}, ...]}
+                        # 根据文档 https://docs.siliconflow.cn/cn/api-reference/models/get-model-list
+                        return [model["id"] for model in data.get("data", [])]
+                    else:
+                        logger.error(f"获取SiliconFlow模型失败: {response.text}")
+                        return []
+            except Exception as e:
+                logger.error(f"获取SiliconFlow模型异常: {e}")
+                return []
+                
+        elif provider == 'custom':
+            return ['deepseek-chat', 'deepseek-r1']
+            
+        return []
+
+
 __all__ = [
     "APIKeyService",
 ]

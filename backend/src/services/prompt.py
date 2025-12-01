@@ -36,6 +36,7 @@ async def process_sentence(
         llm_provider: BaseLLMProvider,
         system_prompt: str,
         semaphore: asyncio.Semaphore,
+        model: str = None,
 ):
     """
     处理单个句子，调用 LLM 生成英文绘画提示词。
@@ -46,6 +47,7 @@ async def process_sentence(
         llm_provider (BaseLLMProvider): LLM 提供商实例
         system_prompt (str): 系统指令提示词
         semaphore (asyncio.Semaphore): 并发控制信号量
+        model (str): 模型名称，如果提供则使用该模型
 
     Returns:
         Tuple[Sentence, str]: (句子对象, 生成的英文提示词)
@@ -53,14 +55,17 @@ async def process_sentence(
     Raises:
         Exception: LLM 调用失败等异常
     """
-    # 根据不同供应商选择模型
-    model_name = "deepseek-v3-250324"
-    if api_key.provider == "deepseek":
-        model_name = "deepseek-chat"
-    if api_key.provider == "volcengine":
-        model_name = "doubao-pro"
-    if api_key.provider == "siliconflow":
-        model_name = "deepseek-ai/DeepSeek-V3.1-Terminus"
+    # 如果提供了model参数，优先使用；否则根据供应商选择默认模型
+    if model:
+        model_name = model
+    else:
+        model_name = "deepseek-v3-250324"
+        if api_key.provider == "deepseek":
+            model_name = "deepseek-chat"
+        if api_key.provider == "volcengine":
+            model_name = "doubao-pro"
+        if api_key.provider == "siliconflow":
+            model_name = "deepseek-ai/DeepSeek-V3.1-Terminus"
 
     logger.debug(f"[LLM] 使用模型: {model_name} (Provider: {api_key.provider})")
     # 使用信号量控制并发，避免过度同时请求
@@ -170,7 +175,7 @@ class PromptService(SessionManagedService):
     # ------------------------------------------------------------
 
     async def _generate_prompts(self, sentences: List[Sentence], api_key: APIKey, style: str,
-                                update: bool = True) -> dict:
+                                update: bool = True, model: str = None, custom_prompt: str = None) -> dict:
         """
         核心执行方法：批量生成提示词 + 写数据库 + 更新章节状态。
 
@@ -179,14 +184,20 @@ class PromptService(SessionManagedService):
             api_key (APIKey): API Key 对象
             style (str): 生成提示词的风格
             update (bool): 是否更新章节，默认为 True
+            model (str): 模型名称
+            custom_prompt (str): 自定义系统提示词
             
         Returns:
             dict: 统计信息 {"total": int, "success": int, "failed": int}
         """
 
-        # 构建完整系统提示词
-        system_prompt = self._build_system_prompt(style)
-        logger.info(f"[SYS] 使用提示词风格: {style}")
+        # 构建完整系统提示词：如果提供了custom_prompt，使用它；否则使用默认模板
+        if custom_prompt:
+            system_prompt = custom_prompt
+            logger.info("[SYS] 使用自定义系统提示词")
+        else:
+            system_prompt = self._build_system_prompt(style)
+            logger.info(f"[SYS] 使用提示词风格: {style}")
 
         # 创建 LLM provider 实例
         llm_provider = ProviderFactory.create(
@@ -201,7 +212,7 @@ class PromptService(SessionManagedService):
 
         # 构建所有句子的任务列表
         tasks = [
-            process_sentence(sentence, api_key, llm_provider, system_prompt, semaphore)
+            process_sentence(sentence, api_key, llm_provider, system_prompt, semaphore, model)
             for sentence in sentences
         ]
 
@@ -256,7 +267,7 @@ class PromptService(SessionManagedService):
     # 对外方法：按章节处理
     # ============================================================
 
-    async def generate_prompts_batch(self, chapter_id: str, api_key_id: str, style: str = "cinematic") -> dict:
+    async def generate_prompts_batch(self, chapter_id: str, api_key_id: str, style: str = "cinematic", model: str = None, custom_prompt: str = None) -> dict:
         """
         批量生成提示词（按章节 ID 获取所有待处理句子）
 
@@ -264,6 +275,8 @@ class PromptService(SessionManagedService):
             chapter_id (str): 章节 ID
             api_key_id (str): API Key ID
             style (str): 生成风格
+            model (str): 模型名称
+            custom_prompt (str): 自定义系统提示词
             
         Returns:
             dict: 统计信息 {"total": int, "success": int, "failed": int}
@@ -281,13 +294,13 @@ class PromptService(SessionManagedService):
             api_key = await self._load_api_key(api_key_id, user_id)
 
             # 统一执行批量处理
-            return await self._generate_prompts(sentences, api_key, style)
+            return await self._generate_prompts(sentences, api_key, style, True, model, custom_prompt)
 
     # ============================================================
     # 对外方法：按句子 ID 数组处理
     # ============================================================
 
-    async def generate_prompts_by_ids(self, sentence_ids: List[str], api_key_id: str, style: str = "cinematic") -> dict:
+    async def generate_prompts_by_ids(self, sentence_ids: List[str], api_key_id: str, style: str = "cinematic", model: str = None, custom_prompt: str = None) -> dict:
         """
         批量生成提示词（按句子 ID 列表处理）
 
@@ -295,6 +308,8 @@ class PromptService(SessionManagedService):
             sentence_ids (List[str]): 多个句子 ID
             api_key_id (str): API Key ID
             style (str): 生成风格
+            model (str): 模型名称
+            custom_prompt (str): 自定义系统提示词
             
         Returns:
             dict: 统计信息 {"total": int, "success": int, "failed": int}
@@ -320,7 +335,7 @@ class PromptService(SessionManagedService):
             api_key = await self._load_api_key(api_key_id, user_id)
 
             # 执行批量生成
-            return await self._generate_prompts(sentences, api_key, style, False)
+            return await self._generate_prompts(sentences, api_key, style, False, model, custom_prompt)
 
 
 prompt_service = PromptService()

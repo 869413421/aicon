@@ -15,13 +15,17 @@ class PromptGenerateRequest(BaseModel):
     chapter_id: UUID = Field(..., description="章节ID")
     api_key_id: UUID = Field(..., description="密钥key_id")
     style: str = Field("cinematic", description="风格预设")
+    model: Optional[str] = Field(None, description="模型名称")
+    custom_prompt: Optional[str] = Field(None, description="自定义系统提示词")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "chapter_id": "123e4567-e89b-12d3-a456-426614174000",
                 "api_key_id": "123e4567-e89b-12d3-a456-426614174000",
-                "style": "cinematic"
+                "style": "cinematic",
+                "model": "deepseek-chat",
+                "custom_prompt": "你是一个专业的AI绘画提示词生成专家..."
             }
         }
     }
@@ -32,6 +36,8 @@ class PromptGenerateByIdsRequest(BaseModel):
     sentence_ids: List[UUID] = Field(..., description="句子ID列表")
     api_key_id: UUID = Field(..., description="密钥key_id")
     style: str = Field("cinematic", description="风格预设")
+    model: Optional[str] = Field(None, description="模型名称")
+    custom_prompt: Optional[str] = Field(None, description="自定义系统提示词")
 
     model_config = {
         "json_schema_extra": {
@@ -41,7 +47,9 @@ class PromptGenerateByIdsRequest(BaseModel):
                     "223e4567-e89b-12d3-a456-426614174111"
                 ],
                 "api_key_id": "123e4567-e89b-12d3-a456-426614174000",
-                "style": "cinematic"
+                "style": "cinematic",
+                "model": "deepseek-chat",
+                "custom_prompt": "你是一个专业的AI绘画提示词生成专家..."
             }
         }
     }
