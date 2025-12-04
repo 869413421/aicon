@@ -488,6 +488,9 @@ class VideoTaskService(BaseService):
     async def delete_video_task(self, task_id: str) -> bool:
         """
         删除视频任务（不验证用户，由API层验证）
+        
+        同时删除 MinIO 上的相关视频文件：
+        - 最终章节视频（如果存在）
 
         Args:
             task_id: 任务ID
@@ -510,10 +513,21 @@ class VideoTaskService(BaseService):
                 "正在处理中的任务不能删除"
             )
 
+        # 删除 MinIO 上的视频文件
+        if task.video_key:
+            try:
+                from src.utils.storage import get_storage_client
+                storage_client = await get_storage_client()
+                await storage_client.delete_file(task.video_key)
+                logger.info(f"✅ 已删除视频文件: {task.video_key}")
+            except Exception as e:
+                logger.warning(f"⚠️ 删除视频文件失败（将继续删除任务记录）: {e}")
+
+        # 删除数据库记录
         await self.delete(task)
         await self.commit()
 
-        logger.info(f"删除视频任务: ID={task_id}")
+        logger.info(f"🗑️ 删除视频任务: ID={task_id}")
         return True
 
 

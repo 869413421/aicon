@@ -141,6 +141,7 @@ async def process_sentence(
             # --- 更新数据库 ---
             sentence.image_url = object_key
             sentence.status = SentenceStatus.GENERATED_IMAGE
+            sentence.mark_material_updated()  # 标记需要重新生成视频
             # 注意：不在这里 flush/commit，避免并发冲突
             # 统一在主函数中处理
             return True

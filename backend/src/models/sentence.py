@@ -48,6 +48,12 @@ class Sentence(BaseModel):
     image_style = Column(String(100), nullable=True, comment="图片风格")
     audio_url = Column(String(500), nullable=True, comment="生成的音频URL")
 
+    # 视频缓存字段
+    sentence_video_key = Column(String(500), nullable=True, comment="单句视频MinIO对象键")
+    sentence_video_duration = Column(Integer, nullable=True, comment="单句视频时长（秒）")
+    needs_regeneration = Column(Boolean, default=True, comment="是否需要重新生成视频")
+    last_video_generated_at = Column(DateTime, nullable=True, comment="最后生成视频时间")
+
     # 处理状态
     status = Column(String(20), default=SentenceStatus.PENDING, index=True, comment="处理状态")
 
@@ -59,7 +65,43 @@ class Sentence(BaseModel):
         Index('idx_sentence_paragraph', 'paragraph_id'),
         Index('idx_sentence_order', 'order_index'),
         Index('idx_sentence_status', 'status'),
+        Index('idx_sentence_needs_regen', 'needs_regeneration'),
     )
+
+    # ==================== 视频缓存管理方法 ====================
+
+    def mark_material_updated(self) -> None:
+        """
+        标记素材已更新，需要重新生成视频
+        
+        当图片或音频重新生成时调用此方法
+        """
+        self.needs_regeneration = True
+
+    def save_video_cache(self, video_key: str, duration: int) -> None:
+        """
+        保存视频缓存信息
+        
+        Args:
+            video_key: MinIO对象键
+            duration: 视频时长（秒）
+        """
+        self.sentence_video_key = video_key
+        self.sentence_video_duration = duration
+        self.needs_regeneration = False
+        self.last_video_generated_at = datetime.utcnow()
+
+    def has_valid_cache(self) -> bool:
+        """
+        检查是否有有效的视频缓存
+        
+        Returns:
+            如果有缓存且未失效则返回True
+        """
+        return (
+            self.sentence_video_key is not None and
+            not self.needs_regeneration
+        )
 
     def __repr__(self) -> str:
         return f"<Sentence(id={self.id}, order={self.order_index}, status={self.status})>"

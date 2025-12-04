@@ -158,6 +158,174 @@ class VideoSynthesisService(SessionManagedService):
             model=None
         )
 
+    # ==================== 视频缓存管理方法 ====================
+
+    async def _upload_sentence_video_cache(
+            self,
+            video_path: Path,
+            sentence_id: str,
+            user_id: str
+    ) -> str:
+        """
+        上传单句视频到 MinIO 作为缓存
+        
+        Args:
+            video_path: 本地视频文件路径
+            sentence_id: 句子ID
+            user_id: 用户ID
+            
+        Returns:
+            MinIO对象键
+        """
+        storage_client = await self._get_storage_client()
+        object_key = f"sentence_videos/{sentence_id}.mp4"
+        
+        await storage_client.upload_file_from_path(
+            user_id=user_id,
+            file_path=str(video_path),
+            original_filename=f"{sentence_id}.mp4",
+            object_key=object_key,
+            metadata={"content_type": "video/mp4"}
+        )
+        
+        logger.info(f"✅ 句子视频已缓存: {object_key}")
+        return object_key
+
+    async def _download_cached_video(
+            self,
+            sentence: Sentence,
+            temp_dir: Path
+    ) -> Path:
+        """
+        从 MinIO 下载缓存的句子视频
+        
+        Args:
+            sentence: 句子对象
+            temp_dir: 临时目录
+            
+        Returns:
+            下载后的本地视频路径
+        """
+        storage_client = await self._get_storage_client()
+        video_path = temp_dir / f"cached_{sentence.id}.mp4"
+        
+        # 下载视频
+        content = await storage_client.download_file(sentence.sentence_video_key)
+        
+        with open(video_path, 'wb') as f:
+            f.write(content)
+        
+        logger.info(f"📥 已下载缓存视频: {sentence.sentence_video_key}")
+        return video_path
+
+    async def _get_video_duration(self, video_path: Path) -> int:
+        """
+        获取视频时长
+        
+        Args:
+            video_path: 视频文件路径
+            
+        Returns:
+            视频时长（秒）
+        """
+        try:
+            # get_audio_duration 是同步函数，不需要 await
+            duration = get_audio_duration(str(video_path))
+            return int(duration) if duration else 5
+        except Exception as e:
+            logger.warning(f"获取视频时长失败: {e}，使用默认值5秒")
+            return 5
+
+    async def _process_sentence_with_cache(
+            self,
+            sentence: Sentence,
+            temp_dir: Path,
+            index: int,
+            gen_setting: dict,
+            semaphore: asyncio.Semaphore,
+            user_id: str,
+            api_key=None,
+            model: Optional[str] = None
+    ) -> Tuple[bool, Optional[Path], Optional[Exception]]:
+        """
+        处理单个句子：生成视频并上传缓存
+        
+        Args:
+            sentence: 句子对象
+            temp_dir: 临时目录
+            index: 句子索引
+            gen_setting: 生成设置
+            semaphore: 并发控制信号量
+            user_id: 用户ID
+            api_key: API密钥
+            model: 模型名称
+            
+        Returns:
+            (是否成功, 视频路径, 异常对象)
+        """
+        async with semaphore:
+            try:
+                # 1. 生成视频
+                video_path = await video_composition_service.synthesize_sentence_video(
+                    sentence=sentence,
+                    temp_dir=temp_dir,
+                    index=index,
+                    gen_setting=gen_setting,
+                    api_key=api_key,
+                    model=model
+                )
+                
+                # 2. 上传到 MinIO 作为缓存
+                video_key = await self._upload_sentence_video_cache(
+                    video_path, str(sentence.id), user_id
+                )
+                
+                # 3. 获取视频时长
+                duration = await self._get_video_duration(video_path)
+                
+                # 4. 保存缓存信息到数据库
+                # 注意：这里只更新对象状态，不要 flush，避免并发 flush 导致 "Session is already flushing" 错误
+                # 统一在主流程中 flush
+                sentence.save_video_cache(video_key, duration)
+                
+                logger.info(f"✅ 句子 {index} 视频已生成并缓存")
+                return True, video_path, None
+                
+            except Exception as e:
+                logger.error(f"❌ 处理句子 {index} 失败: {e}")
+                return False, None, e
+
+    def _merge_video_paths(
+            self,
+            sentences: list,
+            generated_videos: dict,
+            cached_videos: dict
+    ) -> list:
+        """
+        按句子顺序合并生成的和缓存的视频路径
+        
+        Args:
+            sentences: 所有句子列表（按顺序）
+            generated_videos: 新生成的视频字典 {sentence_id: path}
+            cached_videos: 缓存的视频字典 {sentence_id: path}
+            
+        Returns:
+            按顺序排列的视频路径列表
+        """
+        video_paths = []
+        
+        for sentence in sentences:
+            sentence_id = str(sentence.id)
+            
+            if sentence_id in generated_videos:
+                video_paths.append(generated_videos[sentence_id])
+            elif sentence_id in cached_videos:
+                video_paths.append(cached_videos[sentence_id])
+            else:
+                logger.warning(f"⚠️ 句子 {sentence_id} 没有视频（跳过）")
+        
+        return video_paths
+
     async def synthesize_video(self, video_task_id: str) -> dict:
         """
         合成视频（主流程）
@@ -232,45 +400,77 @@ class VideoSynthesisService(SessionManagedService):
                     VideoTaskStatus.SYNTHESIZING_VIDEOS
                 )
 
-                # 11. 并发处理所有句子
-                semaphore = asyncio.Semaphore(3)  # 限制并发数为3
-                tasks_list = [
-                    self._process_sentence_async(
-                        sentence, temp_dir, idx, gen_setting, semaphore, api_key, model
-                    )
-                    for idx, sentence in enumerate(sentences)
-                ]
-
-                results = await asyncio.gather(*tasks_list, return_exceptions=True)
-
-                # 12. 统计结果
-                success_count = 0
-                failed_count = 0
-                video_paths = []
-
-                for idx, result in enumerate(results):
-                    if isinstance(result, Exception):
-                        failed_count += 1
-                        logger.error(f"句子 {idx} 处理异常: {result}")
+                # 11. 分类句子：需要生成 vs 可以复用缓存
+                sentences_to_generate = []
+                cached_sentences = []
+                
+                for sentence in sentences:
+                    if sentence.has_valid_cache():
+                        cached_sentences.append(sentence)
+                        logger.info(f"🔄 句子 {sentence.order_index} 使用缓存: {sentence.sentence_video_key}")
                     else:
-                        success, video_path, error = result
+                        sentences_to_generate.append(sentence)
+                        logger.info(f"🆕 句子 {sentence.order_index} 需要重新生成")
+                
+                logger.info(
+                    f"📊 缓存统计: 总计 {len(sentences)} 个句子, "
+                    f"复用缓存 {len(cached_sentences)} 个, "
+                    f"需要生成 {len(sentences_to_generate)} 个"
+                )
+
+                # 12. 并发生成需要更新的句子视频
+                generated_videos = {}
+                if sentences_to_generate:
+                    semaphore = asyncio.Semaphore(3)  # 限制并发数为3
+                    tasks_list = [
+                        self._process_sentence_with_cache(
+                            sentence, temp_dir, idx, gen_setting, semaphore, str(task.user_id), api_key, model
+                        )
+                        for idx, sentence in enumerate(sentences_to_generate)
+                    ]
+                    
+                    results = await asyncio.gather(*tasks_list, return_exceptions=True)
+                    
+                    # 收集成功生成的视频
+                    for idx, (success, video_path, error) in enumerate(results):
                         if success and video_path:
-                            success_count += 1
-                            video_paths.append(video_path)
-                            # 更新进度
-                            progress = int((idx + 1) / len(sentences) * 80)  # 0-80%
-                            task.update_progress(progress)
-                            task.current_sentence_index = idx
+                            sentence_id = str(sentences_to_generate[idx].id)
+                            generated_videos[sentence_id] = video_path
+                        elif error:
+                            logger.error(f"句子 {idx} 生成失败: {error}")
+                
+                # 13. 下载缓存的句子视频
+                cached_videos = {}
+                if cached_sentences:
+                    for sentence in cached_sentences:
+                        try:
+                            video_path = await self._download_cached_video(sentence, temp_dir)
+                            cached_videos[str(sentence.id)] = video_path
+                        except Exception as e:
+                            logger.error(f"下载缓存视频失败 {sentence.id}: {e}")
+                            # 如果缓存下载失败，标记需要重新生成
+                            sentence.mark_material_updated()
                             await self.db_session.flush()
-                        else:
-                            failed_count += 1
+                
+                # 14. 合并所有视频路径（按句子顺序）
+                video_paths = self._merge_video_paths(
+                    sentences,
+                    generated_videos,
+                    cached_videos
+                )
+                
+                if not video_paths:
+                    raise BusinessLogicError("没有可用的视频文件")
+                
+                logger.info(f"📹 共收集到 {len(video_paths)} 个视频文件")
 
-                if failed_count > 0:
-                    raise BusinessLogicError(
-                        f"部分句子处理失败: 成功={success_count}, 失败={failed_count}"
-                    )
-
-                # 13. 更新API密钥使用统计（如果使用了LLM纠错）
+                # 15. 统计结果
+                success_count = len(generated_videos) + len(cached_videos)
+                failed_count = len(sentences) - success_count
+                
+                logger.info(f"✅ 成功: {success_count}, ❌ 失败: {failed_count}")
+                
+                # 16. 更新API密钥使用统计（如果使用了LLM纠错）
                 if api_key:
                     try:
                         api_key_service = APIKeyService(self.db_session)
@@ -281,7 +481,7 @@ class VideoSynthesisService(SessionManagedService):
                     except Exception as e:
                         logger.warning(f"更新API密钥使用统计失败: {e}")
 
-                # 14. 更新状态为拼接中
+                # 17. 更新状态为拼接中
                 await task_service.update_task_status(task.id, VideoTaskStatus.CONCATENATING)
                 task.update_progress(85)
                 await self.db_session.flush()
