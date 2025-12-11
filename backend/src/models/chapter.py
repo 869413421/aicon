@@ -58,6 +58,7 @@ class Chapter(BaseModel):
     # 关系定义
     project = relationship("Project", back_populates="chapters")
     paragraphs = relationship("Paragraph", back_populates="chapter", cascade="all, delete-orphan")
+    publish_tasks = relationship("PublishTask", back_populates="chapter", cascade="all, delete-orphan")
 
     # 索引定义
     __table_args__ = (
