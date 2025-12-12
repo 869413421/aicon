@@ -71,9 +71,9 @@ class JianYingExportService:
                     f"章节状态不正确，当前状态: {chapter.status}，需要: {ChapterStatus.MATERIALS_PREPARED.value}"
                 )
             
-            # 3. 创建临时工作目录
-            temp_dir = tempfile.mkdtemp(prefix="jianying_export_")
-            draft_dir = Path(temp_dir) / f"draft_{uuid.uuid4().hex[:8]}"
+            # 3. 创建临时工作目录 - 使用系统临时目录以便文件在请求间持久化
+            temp_base_dir = Path(tempfile.gettempdir())
+            draft_dir = temp_base_dir / f"jianying_export_{uuid.uuid4().hex[:8]}" / f"draft_{uuid.uuid4().hex[:8]}"
             draft_dir.mkdir(parents=True, exist_ok=True)
             
             try:
@@ -96,18 +96,19 @@ class JianYingExportService:
                 with open(draft_meta_path, 'w', encoding='utf-8') as f:
                     json.dump(draft_meta, f, ensure_ascii=False, indent=2)
                 
-                # 7. 打包为 ZIP
+                # 7. 打包为 ZIP - 保存到系统临时目录
                 zip_path = await self._create_zip_package(
-                    draft_dir, chapter, temp_dir
+                    draft_dir, chapter, str(temp_base_dir)
                 )
                 
                 logger.info(f"章节 {chapter_id} 导出成功: {zip_path}")
                 return zip_path
                 
             finally:
-                # 清理临时目录（保留ZIP文件）
-                if draft_dir.exists():
-                    shutil.rmtree(draft_dir, ignore_errors=True)
+                # 清理临时目录（保留ZIP文件）- 清理整个导出目录
+                export_dir = draft_dir.parent
+                if export_dir.exists() and export_dir.name.startswith("jianying_export_"):
+                    shutil.rmtree(export_dir, ignore_errors=True)
                     
         except Exception as e:
             logger.error(f"导出章节失败: {e}", exc_info=True)

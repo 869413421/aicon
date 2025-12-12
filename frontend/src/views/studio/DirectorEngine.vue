@@ -466,9 +466,14 @@ const handleExportToJianYing = async () => {
     if (response.success) {
       ElMessage.success('导出成功，开始下载...')
       
-      // 触发文件下载
-      const downloadUrl = `${import.meta.env.VITE_API_BASE_URL}${response.download_url}`
-      exportService.default.downloadFile(downloadUrl, response.filename)
+      // 触发文件下载 - response.download_url 已经包含完整路径
+      try {
+        await exportService.default.downloadFile(response.download_url, response.filename)
+        ElMessage.success('文件下载完成')
+      } catch (downloadError) {
+        console.error('下载文件失败:', downloadError)
+        ElMessage.error('文件下载失败，请重试')
+      }
     } else {
       ElMessage.error(response.message || '导出失败')
     }
