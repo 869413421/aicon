@@ -4,7 +4,10 @@ import asyncio
 from typing import Any, Dict, List
 from openai import AsyncOpenAI
 
-from .base import BaseLLMProvider
+from src.core.logging import get_logger
+from .base import BaseLLMProvider, log_provider_call
+
+logger = get_logger(__name__)
 
 class VolcengineProvider(BaseLLMProvider):
     """
@@ -25,6 +28,7 @@ class VolcengineProvider(BaseLLMProvider):
         )
         self.semaphore = asyncio.Semaphore(max_concurrency)
 
+    @log_provider_call("completions")
     async def completions(
             self,
             model: str,
@@ -41,6 +45,7 @@ class VolcengineProvider(BaseLLMProvider):
                 **kwargs
             )
     
+    @log_provider_call("generate_image")
     async def generate_image(
             self,
             prompt: str,
@@ -59,6 +64,7 @@ class VolcengineProvider(BaseLLMProvider):
                 **kwargs
             )
 
+    @log_provider_call("generate_audio")
     async def generate_audio(
             self,
             input_text: str,

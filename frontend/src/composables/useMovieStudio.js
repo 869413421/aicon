@@ -324,12 +324,9 @@ export function useMovieStudio() {
     }
 
     const handleBatchGenerateAvatars = async () => {
-        if (!genConfig.value.api_key_id) {
-            dialogMode.value = 'batch-avatars'
-            showGenerateDialog.value = true
-            return
-        }
-        confirmBatchGenerateAvatars()
+        // 显示弹窗让用户选择API Key和模型
+        dialogMode.value = 'batch-avatars'
+        showGenerateDialog.value = true
     }
 
     const confirmBatchGenerateAvatars = async () => {
@@ -596,7 +593,7 @@ export function useMovieStudio() {
         // 方法
         loadData, fetchModels, handleGenerateScript, confirmGenerate,
         handleDetectCharacters, confirmExtractCharacters, handleGenerateAvatar, confirmAvatar,
-        handleDeleteCharacter, handleBatchGenerateAvatars,
+        handleDeleteCharacter, handleBatchGenerateAvatars, confirmBatchGenerateAvatars,
         handleGenerateKeyframes, confirmKeyframes, handleProduceShot,
         confirmProduceSingle, handleBatchProduceVideos, confirmProduceBatch,
         handlePrepareMaterials, handleRegenerateKeyframe, handleRegenerateLastFrame,

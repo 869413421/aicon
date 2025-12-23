@@ -116,7 +116,7 @@ const {
   canPrepareMaterials, allCharactersReady,
   fetchModels, handleGenerateScript, confirmGenerate,
   handleDetectCharacters, confirmExtractCharacters, handleGenerateAvatar, confirmAvatar,
-  handleDeleteCharacter, handleBatchGenerateAvatars,
+  handleDeleteCharacter, handleBatchGenerateAvatars, confirmBatchGenerateAvatars,
   handleGenerateKeyframes, confirmKeyframes, handleProduceShot,
   confirmProduceSingle, handleBatchProduceVideos, confirmProduceBatch,
   handlePrepareMaterials, handleRegenerateKeyframe, handleRegenerateLastFrame,
@@ -130,6 +130,7 @@ const handleDialogConfirm = () => {
   else if (dialogMode.value === 'keyframes') confirmKeyframes()
   else if (dialogMode.value === 'produce-single') confirmProduceSingle()
   else if (dialogMode.value === 'produce-batch') confirmProduceBatch()
+  else if (dialogMode.value === 'batch-avatars') confirmBatchGenerateAvatars()
   else if (dialogMode.value === 'regen-keyframe') handleRegenerateKeyframe()
   else if (dialogMode.value === 'regen-last-frame') handleRegenerateLastFrame()
   else if (dialogMode.value === 'regen-video') handleRegenerateVideo()

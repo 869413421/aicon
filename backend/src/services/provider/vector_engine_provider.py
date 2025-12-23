@@ -1,6 +1,7 @@
 import httpx
 from typing import List, Optional, Dict, Any
 from src.core.logging import get_logger
+from src.services.provider.base import log_provider_call
 
 logger = get_logger(__name__)
 
@@ -18,6 +19,7 @@ class VectorEngineProvider:
             "Content-Type": "application/json"
         }
 
+    @log_provider_call("create_video")
     async def create_video(
         self, 
         prompt: str, 
@@ -54,6 +56,7 @@ class VectorEngineProvider:
                 logger.error(f"Vector Engine Create Error: {e}")
                 raise
 
+    @log_provider_call("get_task_status")
     async def get_task_status(self, task_id: str) -> Dict[str, Any]:
         """
         查询任务状态
@@ -68,6 +71,7 @@ class VectorEngineProvider:
                 logger.error(f"Vector Engine Query Status Failed: {e}")
                 raise
 
+    @log_provider_call("get_video_content")
     async def get_video_content(self, task_id: str) -> Dict[str, Any]:
         """
         获取视频内容（包含下载链接）

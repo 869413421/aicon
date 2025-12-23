@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from openai import AsyncOpenAI
 
 from src.core.logging import get_logger
-from src.services.provider.base import BaseLLMProvider
+from src.services.provider.base import BaseLLMProvider, log_provider_call
 
 logger = get_logger(__name__)
 
@@ -34,6 +34,7 @@ class CustomProvider(BaseLLMProvider):
         self.api_key = api_key
         self.semaphore = asyncio.Semaphore(max_concurrency)
 
+    @log_provider_call("completions")
     async def completions(
         self, model: str, messages: List[Dict[str, Any]], **kwargs: Any
     ):
@@ -47,6 +48,7 @@ class CustomProvider(BaseLLMProvider):
                 model=model, messages=messages, **kwargs
             )
 
+    @log_provider_call("generate_image")
     async def generate_image(self, prompt: str, model: str = None, **kwargs: Any):
         """
         调用 自定义 images.generate（纯粹透传）
@@ -80,6 +82,7 @@ class CustomProvider(BaseLLMProvider):
         
         return await self.generate_image(prompt, model, extra_body=extra_body, **kwargs)
 
+    @log_provider_call("generate_audio")
     async def generate_audio(
         self, input_text: str, voice: str = "alloy", model: str = "tts-1", **kwargs: Any
     ):
