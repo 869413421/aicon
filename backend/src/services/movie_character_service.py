@@ -29,37 +29,40 @@ class CharacterThreeViewPromptBuilder:
     核心结构: [时代背景] + [角色身份] + [三视图要求] + [一致性关键词] + [风格/技术参数]
     """
     
-    TEMPLATE = """CINEMATIC CHARACTER TURNAROUND SHEET featuring THREE EXACT VIEWS of {name}:
-front view, 90-degree side view, and back view.
+    TEMPLATE = """LIVE-ACTION CINEMATIC CHARACTER REFERENCE featuring THREE CONSISTENT PHOTOGRAPHED VIEWS of the SAME REAL HUMAN ACTOR portraying {name}:
+front view, 90-degree profile view, and back view.
+
+**THIS IS NOT A 3D RENDER. THIS IS NOT CGI. THIS IS NOT ANIMATION.**
+This is a live-action, real human actor photographed for a feature film character reference.
 
 Character details:
 - Name: {name}
-- Era / Time Period: {era_background}
-- Occupation / Social Status: {occupation}
-- Key Visual Traits: {key_visual_traits}
+- Era / Setting: {era_background}
+- Role: {occupation}
+- Appearance: {key_visual_traits}
 
-Photorealism & Consistency Requirements:
-- IDENTICAL facial structure, skin details, and expressions across all views
-- IDENTICAL clothing, materials, textures, and wear patterns
-- IDENTICAL hairstyle, length, color, and strand placement
-- IDENTICAL height, body proportions, and posture
-- Consistent lighting direction, intensity, and color temperature
-- Neutral production pose suitable for film reference
+Actor & Consistency Requirements:
+- The SAME real human actor appears in all three views
+- Identical facial structure, skin texture, pores, scars, and micro-details
+- Identical hairstyle, hairline, hair length, and hair color
+- Identical costume, wear marks, fabric folds, and equipment placement
+- Natural human posture, neutral production stance
+- Emotionless or neutral expression suitable for film reference photography
 
-Cinematic Rendering Specs:
-- Photorealistic, live-action film quality
-- Physically Based Rendering (PBR) materials
-- Realistic skin shaders with subsurface scattering
-- High dynamic range studio lighting (HDRI)
-- Subtle film grain, realistic contrast and depth
-- Neutral or black studio background
+Live-Action Photography & Cinematography:
+- Shot as live-action film stills
+- Feature film quality
+- Shot on ARRI ALEXA / RED cinema camera
+- Professional cinematic lighting setup, soft but directional
+- Realistic skin tones with natural imperfections (pores, fine lines, texture)
+- Subtle film grain, cinematic contrast, realistic depth of field
+- Neutral or dark studio background, similar to a movie costume test shoot
+- NO 3D rendering artifacts, NO CGI smoothness, NO artificial perfection
 
 Technical Output:
-- Ultra-high detail cinematic character reference
-- Unreal Engine 5 / cinematic renderer quality
-- 8K-level detail
+- Ultra-high detail live-action character reference
+- Photorealistic human photography
 - Aspect ratio: 16:9
-- Include the Name translate to EnglishName in the top-left corner of the image, clearly visible and readable
 """
     
     @classmethod

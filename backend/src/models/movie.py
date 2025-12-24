@@ -35,18 +35,15 @@ class MovieScene(BaseModel):
 
     script_id = Column(PostgreSQLUUID(as_uuid=True), ForeignKey('movie_scripts.id'), nullable=False, index=True)
     order_index = Column(Integer, nullable=False, comment="场景顺序")
-    
-    location = Column(String(200), comment="拍摄地点")
-    time_of_day = Column(String(50), comment="拍摄时间（如：日、夜、傍晚）")
-    atmosphere = Column(String(200), comment="氛围描述")
-    description = Column(Text, comment="场景文本描述")
+    scene = Column(Text, nullable=False, comment="场景详细描述")
+    characters = Column(JSON, default=list, comment="场景中出现的角色名称列表")
     
     # 关系
     script = relationship("MovieScript", back_populates="scenes")
     shots = relationship("MovieShot", back_populates="scene", cascade="all, delete-orphan", order_by="MovieShot.order_index")
 
     def __repr__(self) -> str:
-        return f"<MovieScene(id={self.id}, script_id={self.script_id}, order={self.order_index}, location={self.location})>"
+        return f"<MovieScene(id={self.id}, script_id={self.script_id}, order={self.order_index})>"
 
 class MovieShot(BaseModel):
     """电影分镜（镜头）模型 - 场景中的一个镜头"""
@@ -54,29 +51,41 @@ class MovieShot(BaseModel):
 
     scene_id = Column(PostgreSQLUUID(as_uuid=True), ForeignKey('movie_scenes.id'), nullable=False, index=True)
     order_index = Column(Integer, nullable=False, comment="镜头顺序")
-    
-    visual_description = Column(Text, nullable=False, comment="画面描述提示词")
+    visual_description = Column(Text, nullable=False, comment="画面描述")
     camera_movement = Column(String(200), comment="镜头运动描述")
-    dialogue = Column(Text, comment="人物对话内容（如果有）")
-    performance_prompt = Column(Text, comment="表演/对话表现提示词（如表情、语气）")
+    dialogue = Column(Text, comment="人物对话内容")
+    characters = Column(JSON, default=list, comment="分镜中出现的角色名称列表")
     
-    # 生成资源
-    first_frame_url = Column(String(500), comment="分镜首帧图URL")
-    first_frame_prompt = Column(Text, comment="首帧生成提示词")
-    last_frame_url = Column(String(500), comment="分镜尾帧图URL")
-    last_frame_prompt = Column(Text, comment="尾帧生成提示词")
-    video_url = Column(String(500), comment="生成的视频URL")
-    video_prompt = Column(Text, comment="用于生成视频的最终提示词（包含一致性特征）")
-    video_task_id = Column(String(100), comment="Vector Engine 任务ID")
-    api_key_id = Column(String(50), comment="使用的 API Key ID")
-    status = Column(String(20), default="pending", index=True, comment="镜头生产状态")
-    last_error = Column(Text, comment="最后一次生产错误信息")
+    # 关键帧资源
+    keyframe_url = Column(String(500), comment="分镜关键帧图片URL")
     
     # 关系
     scene = relationship("MovieScene", back_populates="shots")
 
     def __repr__(self) -> str:
         return f"<MovieShot(id={self.id}, scene_id={self.scene_id}, order={self.order_index})>"
+
+class MovieShotTransition(BaseModel):
+    """分镜过渡视频模型 - 存储两个连续分镜之间的视频"""
+    __tablename__ = 'movie_shot_transitions'
+
+    script_id = Column(PostgreSQLUUID(as_uuid=True), ForeignKey('movie_scripts.id'), nullable=False, index=True)
+    from_shot_id = Column(PostgreSQLUUID(as_uuid=True), ForeignKey('movie_shots.id'), nullable=False, index=True)
+    to_shot_id = Column(PostgreSQLUUID(as_uuid=True), ForeignKey('movie_shots.id'), nullable=False, index=True)
+    order_index = Column(Integer, nullable=False, comment="过渡顺序")
+    
+    video_prompt = Column(Text, comment="视频生成提示词")
+    video_url = Column(String(500), comment="生成的视频URL")
+    video_task_id = Column(String(100), comment="视频生成任务ID")
+    status = Column(String(20), default="pending", index=True, comment="生成状态")
+    
+    # 关系
+    script = relationship("MovieScript")
+    from_shot = relationship("MovieShot", foreign_keys=[from_shot_id])
+    to_shot = relationship("MovieShot", foreign_keys=[to_shot_id])
+
+    def __repr__(self) -> str:
+        return f"<MovieShotTransition(id={self.id}, from={self.from_shot_id}, to={self.to_shot_id})>"
 
 class MovieCharacter(BaseModel):
     """电影角色模型"""
