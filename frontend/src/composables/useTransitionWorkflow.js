@@ -11,6 +11,7 @@ export function useTransitionWorkflow() {
     const transitions = ref([])
     const creating = ref(false)
     const generating = ref(false)
+    const generatingIds = ref(new Set()) // 跟踪单个生成状态
 
     const loadTransitions = async (scriptId) => {
         if (!scriptId) return
@@ -75,12 +76,66 @@ export function useTransitionWorkflow() {
         }
     }
 
+    const updateTransitionPrompt = async (transitionId, prompt) => {
+        try {
+            await movieService.updateTransitionPrompt(transitionId, prompt)
+            ElMessage.success('提示词更新成功')
+            return true
+        } catch (error) {
+            ElMessage.error('提示词更新失败')
+            return false
+        }
+    }
+
+    const generateSingleVideo = async (transitionId, scriptId, apiKeyId, videoModel, prompt) => {
+        generatingIds.value.add(transitionId)
+        try {
+            const response = await movieService.generateSingleTransition(transitionId, {
+                api_key_id: apiKeyId,
+                video_model: videoModel,
+                prompt: prompt
+            })
+
+            if (response.task_id) {
+                ElMessage.success('过渡视频生成任务已提交')
+                const { startPolling } = useTaskPoller()
+                startPolling(response.task_id, async (result) => {
+                    ElMessage.success('视频生成完成')
+                    await loadTransitions(scriptId)
+                    generatingIds.value.delete(transitionId)
+                }, (error) => {
+                    ElMessage.error(`生成失败: ${error.message}`)
+                    generatingIds.value.delete(transitionId)
+                })
+            }
+        } catch (error) {
+            ElMessage.error('视频生成失败')
+            generatingIds.value.delete(transitionId)
+        }
+    }
+
+    const deleteTransition = async (transitionId, scriptId) => {
+        try {
+            await movieService.deleteTransition(transitionId)
+            ElMessage.success('删除成功')
+            await loadTransitions(scriptId)
+            return true
+        } catch (error) {
+            ElMessage.error('删除失败')
+            return false
+        }
+    }
+
     return {
         transitions,
         creating,
         generating,
+        generatingIds,
         loadTransitions,
         createTransitions,
-        generateTransitionVideos
+        generateTransitionVideos,
+        updateTransitionPrompt,
+        generateSingleVideo,
+        deleteTransition
     }
 }

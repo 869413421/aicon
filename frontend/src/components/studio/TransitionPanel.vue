@@ -9,15 +9,15 @@
           :disabled="!canCreate"
           @click="handleCreateClick"
         >
-          创建过渡
+          批量创建
         </el-button>
         <el-button 
           type="success"
           :loading="generating"
           :disabled="transitions.length === 0"
-          @click="handleGenerateClick"
+          @click="handleBatchGenerateClick"
         >
-          生成视频
+          批量生成视频
         </el-button>
       </div>
     </div>
@@ -33,26 +33,78 @@
         >
           <div class="transition-header">
             <span class="transition-number">过渡 {{ transition.order_index }}</span>
-            <el-tag v-if="transition.video_url" type="success" size="small">已生成</el-tag>
-            <el-tag v-else-if="transition.status === 'processing'" type="warning" size="small">生成中</el-tag>
-            <el-tag v-else type="info" size="small">待生成</el-tag>
+            <div class="transition-actions">
+              <el-button
+                v-if="!transition.video_url"
+                type="success"
+                size="small"
+                :loading="generatingIds.has(transition.id)"
+                :disabled="generatingIds.has(transition.id)"
+                @click="handleGenerateVideo(transition)"
+              >
+                生成视频
+              </el-button>
+              <el-button
+                v-else
+                type="warning"
+                size="small"
+                :loading="generatingIds.has(transition.id)"
+                :disabled="generatingIds.has(transition.id)"
+                @click="handleRegenerateVideo(transition)"
+              >
+                重新生成
+              </el-button>
+              <el-button
+                type="primary"
+                size="small"
+                @click="handleEditPrompt(transition)"
+              >
+                编辑提示词
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                @click="handleDelete(transition)"
+              >
+                删除
+              </el-button>
+            </div>
           </div>
           
           <div class="transition-content">
-            <p class="transition-prompt">{{ transition.video_prompt }}</p>
+            <div class="shot-info">
+              <span class="label">起始镜头:</span>
+              <span class="value">{{ getShotDescription(transition.from_shot_id) }}</span>
+            </div>
+            <div class="shot-info">
+              <span class="label">结束镜头:</span>
+              <span class="value">{{ getShotDescription(transition.to_shot_id) }}</span>
+            </div>
+            <div class="prompt-preview">
+              <span class="label">提示词:</span>
+              <p class="prompt-text">{{ transition.video_prompt || '未生成' }}</p>
+            </div>
           </div>
 
           <div v-if="transition.video_url" class="transition-video">
             <video :src="transition.video_url" controls />
           </div>
+          <div v-else-if="transition.status === 'processing'" class="transition-placeholder">
+            <el-icon :size="40"><Loading /></el-icon>
+            <p>生成中...</p>
+          </div>
+          <div v-else class="transition-placeholder">
+            <el-icon :size="40"><VideoCamera /></el-icon>
+            <p>待生成</p>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 创建过渡对话框 -->
+    <!-- 批量创建对话框 -->
     <el-dialog
       v-model="showCreateDialog"
-      title="创建过渡"
+      title="批量创建过渡"
       width="500px"
     >
       <el-form :model="createFormData" label-width="100px">
@@ -91,15 +143,15 @@
       </template>
     </el-dialog>
 
-    <!-- 生成视频对话框 -->
+    <!-- 批量生成视频对话框 -->
     <el-dialog
-      v-model="showGenerateDialog"
-      title="生成过渡视频"
+      v-model="showBatchGenerateDialog"
+      title="批量生成过渡视频"
       width="500px"
     >
-      <el-form :model="generateFormData" label-width="100px">
+      <el-form :model="batchGenerateFormData" label-width="100px">
         <el-form-item label="API Key">
-          <el-select v-model="generateFormData.apiKeyId" placeholder="请选择API Key" style="width: 100%">
+          <el-select v-model="batchGenerateFormData.apiKeyId" placeholder="请选择API Key" style="width: 100%">
             <el-option
               v-for="key in apiKeys"
               :key="key.id"
@@ -109,61 +161,185 @@
           </el-select>
         </el-form-item>
         <el-form-item label="视频模型">
-          <el-input v-model="generateFormData.videoModel" placeholder="请输入视频模型名称" />
+          <el-select 
+            v-model="batchGenerateFormData.videoModel" 
+            placeholder="选择模型" 
+            style="width: 100%"
+            :loading="loadingVideoModels"
+            filterable
+            allow-create
+            default-first-option
+          >
+            <el-option
+              v-for="model in videoModelOptions"
+              :key="model"
+              :label="model"
+              :value="model"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showGenerateDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleGenerateConfirm" :disabled="!generateFormData.apiKeyId || !generateFormData.videoModel">确定</el-button>
+        <el-button @click="showBatchGenerateDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleBatchGenerateConfirm" :disabled="!batchGenerateFormData.apiKeyId || !batchGenerateFormData.videoModel">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 编辑提示词对话框 -->
+    <el-dialog
+      v-model="showEditPromptDialog"
+      title="编辑过渡提示词"
+      width="700px"
+    >
+      <el-form :model="editPromptFormData" label-width="100px">
+        <el-form-item label="视频提示词">
+          <el-input
+            v-model="editPromptFormData.prompt"
+            type="textarea"
+            :rows="12"
+            placeholder="视频生成提示词"
+            style="font-family: monospace; font-size: 12px;"
+          />
+          <div style="margin-top: 8px; color: #909399; font-size: 12px;">
+            💡 提示词用于生成两个分镜之间的过渡视频。您可以根据需要调整。
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditPromptDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleEditPromptConfirm">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 单个生成视频对话框 -->
+    <el-dialog
+      v-model="showSingleGenerateDialog"
+      :title="singleGenerateDialogType === 'generate' ? '生成过渡视频' : '重新生成过渡视频'"
+      width="700px"
+    >
+      <el-form :model="singleGenerateFormData" label-width="100px">
+        <el-form-item label="API Key">
+          <el-select v-model="singleGenerateFormData.apiKeyId" placeholder="请选择API Key" style="width: 100%">
+            <el-option
+              v-for="key in apiKeys"
+              :key="key.id"
+              :label="`${key.name} (${key.provider})`"
+              :value="key.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="视频模型">
+          <el-select 
+            v-model="singleGenerateFormData.videoModel" 
+            placeholder="选择模型" 
+            style="width: 100%"
+            :loading="loadingVideoModels"
+            filterable
+            allow-create
+            default-first-option
+          >
+            <el-option
+              v-for="model in videoModelOptions"
+              :key="model"
+              :label="model"
+              :value="model"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="视频提示词">
+          <el-input
+            v-model="singleGenerateFormData.prompt"
+            type="textarea"
+            :rows="12"
+            placeholder="视频生成提示词（可编辑调整）"
+            style="font-family: monospace; font-size: 12px;"
+          />
+          <div style="margin-top: 8px; color: #909399; font-size: 12px;">
+            💡 提示词用于生成两个分镜之间的过渡视频。您可以根据需要调整。
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showSingleGenerateDialog = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="handleSingleGenerateConfirm" 
+          :disabled="!singleGenerateFormData.apiKeyId || !singleGenerateFormData.videoModel"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading, VideoCamera } from '@element-plus/icons-vue'
+import { useTransitionWorkflow } from '@/composables/useTransitionWorkflow'
 import api from '@/services/api'
 
 const props = defineProps({
-  transitions: {
-    type: Array,
-    default: () => []
-  },
-  creating: {
-    type: Boolean,
-    default: false
-  },
-  generating: {
-    type: Boolean,
-    default: false
-  },
-  canCreate: {
-    type: Boolean,
-    default: true
-  },
-  apiKeys: {
-    type: Array,
-    default: () => []
-  }
+  scriptId: String,
+  apiKeys: Array
 })
 
-const emit = defineEmits(['create-transitions', 'generate-videos'])
+const {
+  transitions,
+  creating,
+  generating,
+  generatingIds,
+  loadTransitions,
+  createTransitions,
+  generateTransitionVideos,
+  updateTransitionPrompt,
+  generateSingleVideo,
+  deleteTransition
+} = useTransitionWorkflow()
 
+// 对话框状态
 const showCreateDialog = ref(false)
-const showGenerateDialog = ref(false)
+const showBatchGenerateDialog = ref(false)
+const showEditPromptDialog = ref(false)
+const showSingleGenerateDialog = ref(false)
+const singleGenerateDialogType = ref('generate')
+
+// 表单数据
 const createFormData = ref({
   apiKeyId: '',
   model: ''
 })
-const generateFormData = ref({
+
+const batchGenerateFormData = ref({
   apiKeyId: '',
   videoModel: 'veo_3_1-fast'
 })
-const textModelOptions = ref([])
-const loadingTextModels = ref(false)
 
-// 监听创建对话框的API Key变化
+const editPromptFormData = ref({
+  transitionId: '',
+  prompt: ''
+})
+
+const singleGenerateFormData = ref({
+  transitionId: '',
+  apiKeyId: '',
+  videoModel: 'veo_3_1-fast',
+  prompt: ''
+})
+
+// 模型选项
+const textModelOptions = ref([])
+const videoModelOptions = ref([])
+const loadingTextModels = ref(false)
+const loadingVideoModels = ref(false)
+
+// 计算属性
+const canCreate = computed(() => {
+  return props.apiKeys && props.apiKeys.length > 0
+})
+
+// 监听API Key变化加载模型
 watch(() => createFormData.value.apiKeyId, async (newKeyId) => {
   if (!newKeyId) {
     textModelOptions.value = []
@@ -177,8 +353,6 @@ watch(() => createFormData.value.apiKeyId, async (newKeyId) => {
     textModelOptions.value = models || []
     if (textModelOptions.value.length > 0) {
       createFormData.value.model = textModelOptions.value[0]
-    } else {
-      createFormData.value.model = ''
     }
   } catch (error) {
     console.error('获取模型列表失败', error)
@@ -190,6 +364,68 @@ watch(() => createFormData.value.apiKeyId, async (newKeyId) => {
   }
 })
 
+watch(() => batchGenerateFormData.value.apiKeyId, async (newKeyId) => {
+  if (!newKeyId) {
+    videoModelOptions.value = []
+    batchGenerateFormData.value.videoModel = 'veo_3_1-fast'
+    return
+  }
+  
+  loadingVideoModels.value = true
+  try {
+    const models = await api.get(`/api-keys/${newKeyId}/models?type=video`)
+    videoModelOptions.value = models || []
+    if (videoModelOptions.value.length > 0) {
+      batchGenerateFormData.value.videoModel = videoModelOptions.value[0]
+    }
+  } catch (error) {
+    console.error('获取模型列表失败', error)
+    ElMessage.warning('获取模型列表失败')
+    videoModelOptions.value = ['veo_3_1-fast']
+    batchGenerateFormData.value.videoModel = 'veo_3_1-fast'
+  } finally {
+    loadingVideoModels.value = false
+  }
+})
+
+watch(() => singleGenerateFormData.value.apiKeyId, async (newKeyId) => {
+  if (!newKeyId) {
+    videoModelOptions.value = []
+    singleGenerateFormData.value.videoModel = 'veo_3_1-fast'
+    return
+  }
+  
+  loadingVideoModels.value = true
+  try {
+    const models = await api.get(`/api-keys/${newKeyId}/models?type=video`)
+    videoModelOptions.value = models || []
+    if (videoModelOptions.value.length > 0) {
+      singleGenerateFormData.value.videoModel = videoModelOptions.value[0]
+    }
+  } catch (error) {
+    console.error('获取模型列表失败', error)
+    ElMessage.warning('获取模型列表失败')
+    videoModelOptions.value = ['veo_3_1-fast']
+    singleGenerateFormData.value.videoModel = 'veo_3_1-fast'
+  } finally {
+    loadingVideoModels.value = false
+  }
+})
+
+// 加载transitions
+watch(() => props.scriptId, (newId) => {
+  if (newId) {
+    loadTransitions(newId)
+  }
+}, { immediate: true })
+
+// 辅助函数
+const getShotDescription = (shotId) => {
+  // TODO: 从shots数据中获取描述
+  return `镜头 ${shotId.substring(0, 8)}...`
+}
+
+// 批量创建
 const handleCreateClick = () => {
   createFormData.value = {
     apiKeyId: props.apiKeys[0]?.id || '',
@@ -198,37 +434,106 @@ const handleCreateClick = () => {
   showCreateDialog.value = true
 }
 
-const handleCreateConfirm = () => {
+const handleCreateConfirm = async () => {
   if (!createFormData.value.apiKeyId || !createFormData.value.model) {
     return
   }
-  emit('create-transitions', createFormData.value.apiKeyId, createFormData.value.model)
+  await createTransitions(props.scriptId, createFormData.value.apiKeyId, createFormData.value.model)
   showCreateDialog.value = false
 }
 
-const handleGenerateClick = () => {
-  generateFormData.value = {
+// 批量生成
+const handleBatchGenerateClick = () => {
+  batchGenerateFormData.value = {
     apiKeyId: props.apiKeys[0]?.id || '',
     videoModel: 'veo_3_1-fast'
   }
-  showGenerateDialog.value = true
+  showBatchGenerateDialog.value = true
 }
 
-const handleGenerateConfirm = () => {
-  if (!generateFormData.value.apiKeyId || !generateFormData.value.videoModel) {
+const handleBatchGenerateConfirm = async () => {
+  if (!batchGenerateFormData.value.apiKeyId || !batchGenerateFormData.value.videoModel) {
     return
   }
-  emit('generate-videos', generateFormData.value.apiKeyId, generateFormData.value.videoModel)
-  showGenerateDialog.value = false
+  await generateTransitionVideos(props.scriptId, batchGenerateFormData.value.apiKeyId, batchGenerateFormData.value.videoModel)
+  showBatchGenerateDialog.value = false
+}
+
+// 编辑提示词
+const handleEditPrompt = (transition) => {
+  editPromptFormData.value = {
+    transitionId: transition.id,
+    prompt: transition.video_prompt || ''
+  }
+  showEditPromptDialog.value = true
+}
+
+const handleEditPromptConfirm = async () => {
+  const success = await updateTransitionPrompt(
+    editPromptFormData.value.transitionId,
+    editPromptFormData.value.prompt
+  )
+  if (success) {
+    await loadTransitions(props.scriptId)
+    showEditPromptDialog.value = false
+  }
+}
+
+// 单个生成
+const handleGenerateVideo = (transition) => {
+  singleGenerateDialogType.value = 'generate'
+  singleGenerateFormData.value = {
+    transitionId: transition.id,
+    apiKeyId: props.apiKeys[0]?.id || '',
+    videoModel: 'veo_3_1-fast',
+    prompt: transition.video_prompt || ''
+  }
+  showSingleGenerateDialog.value = true
+}
+
+const handleRegenerateVideo = (transition) => {
+  singleGenerateDialogType.value = 'regenerate'
+  singleGenerateFormData.value = {
+    transitionId: transition.id,
+    apiKeyId: props.apiKeys[0]?.id || '',
+    videoModel: 'veo_3_1-fast',
+    prompt: transition.video_prompt || ''
+  }
+  showSingleGenerateDialog.value = true
+}
+
+const handleSingleGenerateConfirm = async () => {
+  if (!singleGenerateFormData.value.apiKeyId || !singleGenerateFormData.value.videoModel) {
+    return
+  }
+  await generateSingleVideo(
+    singleGenerateFormData.value.transitionId,
+    props.scriptId,
+    singleGenerateFormData.value.apiKeyId,
+    singleGenerateFormData.value.videoModel,
+    singleGenerateFormData.value.prompt
+  )
+  showSingleGenerateDialog.value = false
+}
+
+// 删除
+const handleDelete = async (transition) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个过渡吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await deleteTransition(transition.id, props.scriptId)
+  } catch (error) {
+    // 用户取消
+  }
 }
 </script>
 
 <style scoped>
 .transition-panel {
-  background: white;
-  border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .panel-header {
@@ -236,8 +541,6 @@ const handleGenerateConfirm = () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #eee;
 }
 
 .panel-header h3 {
@@ -248,13 +551,17 @@ const handleGenerateConfirm = () => {
 
 .actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+}
+
+.transition-list {
+  margin-top: 20px;
 }
 
 .transition-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 16px;
+  gap: 20px;
 }
 
 .transition-card {
@@ -262,6 +569,7 @@ const handleGenerateConfirm = () => {
   border-radius: 8px;
   padding: 16px;
   transition: all 0.3s;
+  background: white;
 }
 
 .transition-card:hover {
@@ -274,36 +582,89 @@ const handleGenerateConfirm = () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  gap: 8px;
 }
 
 .transition-number {
   font-weight: 600;
   color: #409eff;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.transition-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .transition-content {
   margin-bottom: 12px;
 }
 
-.transition-prompt {
-  margin: 0;
+.shot-info {
+  margin-bottom: 8px;
   font-size: 13px;
-  line-height: 1.6;
+}
+
+.shot-info .label {
+  font-weight: 600;
   color: #606266;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin-right: 8px;
+}
+
+.shot-info .value {
+  color: #909399;
+}
+
+.prompt-preview {
+  margin-top: 12px;
+}
+
+.prompt-preview .label {
+  font-weight: 600;
+  color: #606266;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.prompt-text {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.6;
+  margin: 0;
+  max-height: 60px;
+  overflow-y: auto;
+  font-family: monospace;
+  background: #f5f7fa;
+  padding: 8px;
+  border-radius: 4px;
 }
 
 .transition-video {
-  border-radius: 4px;
-  overflow: hidden;
+  margin-top: 12px;
 }
 
 .transition-video video {
   width: 100%;
-  height: auto;
-  display: block;
+  border-radius: 4px;
+  background: #000;
+}
+
+.transition-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  color: #909399;
+  margin-top: 12px;
+}
+
+.transition-placeholder p {
+  margin-top: 8px;
+  font-size: 13px;
 }
 </style>

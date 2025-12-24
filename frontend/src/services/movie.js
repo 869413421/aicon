@@ -1,4 +1,4 @@
-import api, { get, post, put } from './api'
+import api, { get, post, put, del } from './api'
 
 /**
  * 电影生成相关服务
@@ -118,6 +118,27 @@ export const movieService = {
      */
     getTransitions(scriptId) {
         return get(`/movie/scripts/${scriptId}/transitions`)
+    },
+
+    /**
+     * 获取单个过渡
+     */
+    getTransition(transitionId) {
+        return get(`/movie/transitions/${transitionId}`)
+    },
+
+    /**
+     * 更新过渡提示词
+     */
+    updateTransitionPrompt(transitionId, prompt) {
+        return put(`/movie/transitions/${transitionId}`, { video_prompt: prompt })
+    },
+
+    /**
+     * 删除过渡
+     */
+    deleteTransition(transitionId) {
+        return del(`/movie/transitions/${transitionId}`)
     }
 }
 

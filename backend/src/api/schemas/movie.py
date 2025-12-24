@@ -189,4 +189,25 @@ class TransitionGenerateRequest(BaseModel):
     api_key_id: str
     model: Optional[str] = None
     video_model: Optional[str] = "veo_3_1-fast"
+    prompt: Optional[str] = None  # 自定义视频提示词
 
+class TransitionResponse(BaseModel):
+    """过渡视频响应"""
+    id: str
+    script_id: str
+    from_shot_id: str
+    to_shot_id: str
+    order_index: int
+    video_prompt: Optional[str] = None
+    video_url: Optional[str] = None
+    video_task_id: Optional[str] = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class TransitionUpdateRequest(BaseModel):
+    """更新过渡视频提示词"""
+    video_prompt: str
