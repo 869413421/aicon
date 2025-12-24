@@ -7,7 +7,7 @@
           type="primary"
           :loading="extracting"
           :disabled="!canExtract"
-          @click="$emit('extract-shots')"
+          @click="handleExtractClick"
         >
           提取分镜
         </el-button>
@@ -24,41 +24,72 @@
           class="shot-card"
         >
           <div class="shot-header">
-            <span class="shot-number">分镜 {{ shot.order_index }}</span>
-            <el-tag v-if="shot.camera_movement" size="small" type="warning">
-              {{ shot.camera_movement }}
-            </el-tag>
+            <span class="shot-number">镜头 {{ shot.order_index }}</span>
+            <el-tag v-if="shot.keyframe_url" type="success" size="small">已生成关键帧</el-tag>
+          </div>
+          
+          <div class="shot-content">
+            <p class="shot-description">{{ shot.shot }}</p>
+            <p v-if="shot.dialogue" class="shot-dialogue">💬 {{ shot.dialogue }}</p>
           </div>
 
-          <div class="shot-characters">
-            <el-tag 
-              v-for="char in shot.characters" 
-              :key="char"
-              size="small"
-              type="info"
-            >
-              {{ char }}
-            </el-tag>
-          </div>
-
-          <div class="shot-description">
-            <p>{{ shot.visual_description }}</p>
-          </div>
-
-          <div v-if="shot.dialogue" class="shot-dialogue">
-            <el-icon><ChatDotRound /></el-icon>
-            <span>{{ shot.dialogue }}</span>
+          <div v-if="shot.keyframe_url" class="shot-keyframe">
+            <img :src="shot.keyframe_url" alt="关键帧" />
           </div>
         </div>
       </div>
     </div>
+
+    <!-- API Key选择对话框 -->
+    <el-dialog
+      v-model="showDialog"
+      title="提取分镜"
+      width="500px"
+    >
+      <el-form :model="formData" label-width="100px">
+        <el-form-item label="API Key">
+          <el-select v-model="formData.apiKeyId" placeholder="请选择API Key" style="width: 100%">
+            <el-option
+              v-for="key in apiKeys"
+              :key="key.id"
+              :label="`${key.name} (${key.provider})`"
+              :value="key.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="模型">
+          <el-select 
+            v-model="formData.model" 
+            placeholder="选择模型" 
+            style="width: 100%"
+            :loading="loadingModels"
+            filterable
+            allow-create
+            default-first-option
+          >
+            <el-option
+              v-for="model in modelOptions"
+              :key="model"
+              :label="model"
+              :value="model"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleDialogConfirm" :disabled="!formData.apiKeyId || !formData.model">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ChatDotRound } from '@element-plus/icons-vue'
+import { ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import api from '@/services/api'
 
-defineProps({
+const props = defineProps({
   shots: {
     type: Array,
     default: () => []
@@ -70,10 +101,65 @@ defineProps({
   canExtract: {
     type: Boolean,
     default: true
+  },
+  apiKeys: {
+    type: Array,
+    default: () => []
   }
 })
 
-defineEmits(['extract-shots'])
+const emit = defineEmits(['extract-shots'])
+
+const showDialog = ref(false)
+const formData = ref({
+  apiKeyId: '',
+  model: ''
+})
+const modelOptions = ref([])
+const loadingModels = ref(false)
+
+// 监听API Key变化，自动加载模型列表
+watch(() => formData.value.apiKeyId, async (newKeyId) => {
+  if (!newKeyId) {
+    modelOptions.value = []
+    formData.value.model = ''
+    return
+  }
+  
+  loadingModels.value = true
+  try {
+    const models = await api.get(`/api-keys/${newKeyId}/models?type=text`)
+    modelOptions.value = models || []
+    if (modelOptions.value.length > 0) {
+      formData.value.model = modelOptions.value[0]
+    } else {
+      formData.value.model = ''
+    }
+  } catch (error) {
+    console.error('获取模型列表失败', error)
+    ElMessage.warning('获取模型列表失败')
+    modelOptions.value = []
+    formData.value.model = ''
+  } finally {
+    loadingModels.value = false
+  }
+})
+
+const handleExtractClick = () => {
+  formData.value = {
+    apiKeyId: props.apiKeys[0]?.id || '',
+    model: ''
+  }
+  showDialog.value = true
+}
+
+const handleDialogConfirm = () => {
+  if (!formData.value.apiKeyId || !formData.value.model) {
+    return
+  }
+  emit('extract-shots', formData.value.apiKeyId, formData.value.model)
+  showDialog.value = false
+}
 </script>
 
 <style scoped>
@@ -101,7 +187,7 @@ defineEmits(['extract-shots'])
 
 .shot-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 
@@ -121,49 +207,41 @@ defineEmits(['extract-shots'])
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .shot-number {
   font-weight: 600;
   color: #409eff;
-  font-size: 14px;
 }
 
-.shot-characters {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+.shot-content {
   margin-bottom: 12px;
 }
 
 .shot-description {
-  background: #f5f7fa;
-  padding: 12px;
-  border-radius: 4px;
-  margin-bottom: 8px;
-}
-
-.shot-description p {
-  margin: 0;
-  font-size: 13px;
+  margin: 0 0 8px 0;
+  font-size: 14px;
   line-height: 1.6;
   color: #606266;
 }
 
 .shot-dialogue {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px;
-  background: #ecf5ff;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #409eff;
+  margin: 0;
+  font-size: 13px;
+  color: #909399;
+  font-style: italic;
 }
 
-.shot-dialogue .el-icon {
-  flex-shrink: 0;
-  margin-top: 2px;
+.shot-keyframe {
+  margin-top: 12px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.shot-keyframe img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 </style>

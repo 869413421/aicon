@@ -36,8 +36,8 @@
             v-show="currentStep === 0"
             :characters="characterWorkflow.characters.value"
             :extracting="characterWorkflow.extracting.value"
-            :generating-id="characterWorkflow.generatingAvatarId.value"
-            :can-extract="true"
+            :generating-ids="characterWorkflow.generatingIds.value"
+            :can-extract="canExtractCharacters"
             :api-keys="apiKeys"
             @extract-characters="handleExtractCharacters"
             @generate-avatar="handleGenerateAvatar"
@@ -60,6 +60,7 @@
             :shots="shotWorkflow.allShots.value"
             :extracting="shotWorkflow.extracting.value"
             :can-extract="canExtractShots"
+            :api-keys="apiKeys"
             @extract-shots="handleExtractShots"
           />
 
@@ -196,24 +197,40 @@ const handleExtractScenes = async (apiKeyId, model) => {
   await loadData(true)  // skipStepUpdate=true 保持当前步骤
 }
 
-const handleExtractShots = async (scriptId, apiKeyId, model) => {
-  await shotWorkflow.extractShots(scriptId, apiKeyId, model)
-  await loadData()
+const handleExtractShots = async (apiKeyId, model) => {
+  if (!sceneWorkflow.script.value?.id) {
+    ElMessage.warning('请先提取场景')
+    return
+  }
+  await shotWorkflow.extractShots(sceneWorkflow.script.value.id, apiKeyId, model)
+  await loadData(true)  // skipStepUpdate=true 保持当前步骤
 }
 
-const handleGenerateKeyframes = async (scriptId, apiKeyId, model) => {
-  await shotWorkflow.generateKeyframes(scriptId, apiKeyId, model)
-  await loadData()
+const handleGenerateKeyframes = async (apiKeyId, model) => {
+  if (!sceneWorkflow.script.value?.id) {
+    ElMessage.warning('请先提取场景')
+    return
+  }
+  await shotWorkflow.generateKeyframes(sceneWorkflow.script.value.id, apiKeyId, model)
+  await loadData(true)  // skipStepUpdate=true 保持当前步骤
 }
 
-const handleCreateTransitions = async (scriptId, apiKeyId, model) => {
-  await transitionWorkflow.createTransitions(scriptId, apiKeyId, model)
-  await loadData()
+const handleCreateTransitions = async (apiKeyId, model) => {
+  if (!sceneWorkflow.script.value?.id) {
+    ElMessage.warning('请先提取场景')
+    return
+  }
+  await transitionWorkflow.createTransitions(sceneWorkflow.script.value.id, apiKeyId, model)
+  await loadData(true)  // skipStepUpdate=true 保持当前步骤
 }
 
-const handleGenerateTransitionVideos = async (scriptId, apiKeyId, videoModel) => {
-  await transitionWorkflow.generateTransitionVideos(scriptId, apiKeyId, videoModel)
-  await loadData()
+const handleGenerateTransitionVideos = async (apiKeyId, videoModel) => {
+  if (!sceneWorkflow.script.value?.id) {
+    ElMessage.warning('请先提取场景')
+    return
+  }
+  await transitionWorkflow.generateTransitionVideos(sceneWorkflow.script.value.id, apiKeyId, videoModel)
+  await loadData(true)  // skipStepUpdate=true 保持当前步骤
 }
 
 // Watch projectId changes

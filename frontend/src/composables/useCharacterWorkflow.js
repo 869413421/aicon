@@ -10,7 +10,7 @@ import { useTaskPoller } from './useTaskPoller'
 export function useCharacterWorkflow(projectId) {
     const characters = ref([])
     const extracting = ref(false)
-    const generatingAvatarId = ref(null)
+    const generatingIds = ref(new Set()) // 改用Set跟踪多个正在生成的角色
 
     const loadCharacters = async () => {
         if (!projectId.value) return
@@ -50,7 +50,7 @@ export function useCharacterWorkflow(projectId) {
     }
 
     const generateAvatar = async (characterId, apiKeyId, model, prompt, style) => {
-        generatingAvatarId.value = characterId
+        generatingIds.value.add(characterId) // 添加到Set
         try {
             const response = await movieService.generateCharacterAvatar(characterId, {
                 api_key_id: apiKeyId,
@@ -65,15 +65,15 @@ export function useCharacterWorkflow(projectId) {
                 startPolling(response.task_id, async () => {
                     ElMessage.success('角色形象生成成功')
                     await loadCharacters()
-                    generatingAvatarId.value = null
+                    generatingIds.value.delete(characterId) // 从Set中移除
                 }, (error) => {
                     ElMessage.error(`生成失败: ${error.message}`)
-                    generatingAvatarId.value = null
+                    generatingIds.value.delete(characterId) // 从Set中移除
                 })
             }
         } catch (error) {
             ElMessage.error('无法启动形象生成')
-            generatingAvatarId.value = null
+            generatingIds.value.delete(characterId) // 从Set中移除
         }
     }
 
@@ -105,14 +105,14 @@ export function useCharacterWorkflow(projectId) {
             ElMessage.success('角色已删除')
             await loadCharacters()
         } catch (error) {
-            ElMessage.error('删除失败')
+            ElMessage.error('删除角色失败')
         }
     }
 
     return {
         characters,
         extracting,
-        generatingAvatarId,
+        generatingIds, // 返回Set而不是单个ID
         loadCharacters,
         extractCharacters,
         generateAvatar,

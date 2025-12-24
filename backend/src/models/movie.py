@@ -62,7 +62,8 @@ class MovieShot(BaseModel):
     scene = relationship("MovieScene", back_populates="shots")
 
     def __repr__(self) -> str:
-        return f"<MovieShot(id={self.id}, scene_id={self.scene_id}, order={self.order_index})>"
+        # 使用 object.__repr__ 避免访问可能导致 DetachedInstanceError 的属性
+        return object.__repr__(self)
 
 class MovieShotTransition(BaseModel):
     """分镜过渡视频模型 - 存储两个连续分镜之间的视频"""

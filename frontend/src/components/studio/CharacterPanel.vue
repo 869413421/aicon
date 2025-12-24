@@ -51,7 +51,8 @@
               v-if="!char.avatar_url"
               type="primary" 
               size="small"
-              :loading="generatingId === char.id"
+              :loading="generatingIds.has(char.id)"
+              :disabled="generatingIds.has(char.id)"
               @click="handleGenerateClick(char)"
             >
               生成形象
@@ -69,7 +70,8 @@
                 type="warning" 
                 size="small"
                 icon="Refresh"
-                :loading="generatingId === char.id"
+                :loading="generatingIds.has(char.id)"
+                :disabled="generatingIds.has(char.id)"
                 @click="handleRegenerateClick(char)"
               >
                 重新生成
@@ -160,9 +162,9 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  generatingId: {
-    type: String,
-    default: null
+  generatingIds: {
+    type: Set,
+    default: () => new Set()
   },
   canExtract: {
     type: Boolean,

@@ -105,13 +105,12 @@ class StoryboardService(BaseService):
 
         # 7. 保存分镜
         created_shots = []
-        for shot_item in shot_data.get("shots", []):
+        for idx, shot_item in enumerate(shot_data.get("shots", [])): # 创建分镜
             shot = MovieShot(
                 scene_id=scene.id,
-                order_index=shot_item.get("order_index"),
-                visual_description=shot_item.get("visual_description"),
-                camera_movement=shot_item.get("camera_movement"),
-                dialogue=shot_item.get("dialogue", ""),
+                order_index=shot_item.get("order_index", idx + 1),
+                shot=shot_item.get("shot", ""),
+                dialogue=shot_item.get("dialogue"),
                 characters=shot_item.get("characters", [])
             )
             self.db_session.add(shot)

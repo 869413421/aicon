@@ -12,11 +12,33 @@ class ScriptGenerateRequest(BaseModel):
     api_key_id: str
     model: Optional[str] = None
 
+class ShotExtractRequest(BaseModel):
+    """分镜提取请求"""
+    api_key_id: str
+    model: Optional[str] = None
+
+class ShotBase(BaseModel):
+    """分镜基础信息"""
+    order_index: int
+    shot: Optional[str] = None
+    dialogue: Optional[str] = None
+    characters: List[str] = []
+    keyframe_url: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+    
+    @field_validator("keyframe_url", mode="after")
+    @classmethod
+    def sign_urls(cls, v: Optional[str]) -> Optional[str]:
+        if v and not v.startswith("http"):
+            return storage_client.get_presigned_url(v, timedelta(hours=24))
+        return v
+
 class MovieShotBase(BaseModel):
     id: UUID4
     order_index: int
-    visual_description: str
-    camera_movement: Optional[str] = None
+    shot: str
     dialogue: Optional[str] = None
     characters: List[str] = []
     keyframe_url: Optional[str] = None
@@ -149,10 +171,8 @@ class BatchProduceRequest(BaseModel):
 
 # --- 更新请求 ---
 class ShotUpdateRequest(BaseModel):
-    video_prompt: Optional[str] = None
-    visual_description: Optional[str] = None
+    shot: Optional[str] = None
     dialogue: Optional[str] = None
-    camera_movement: Optional[str] = None
 
 # --- 新增请求 schemas ---
 class StoryboardExtractRequest(BaseModel):
