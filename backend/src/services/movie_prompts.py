@@ -217,22 +217,63 @@ Shot 4: 特写 - 梅露希亚冷笑："你希望我离开？"
         return cls.SHOT_EXTRACTION.format(characters=characters, scene=scene)
 
     # 场景图生成Prompt
-    SCENE_IMAGE_GENERATION = """Create a cinematic environment shot for the following scene. 
-Focus ONLY on the location, setting, and atmosphere. 
-DO NOT include any people, characters, or human figures.
+    SCENE_IMAGE_GENERATION = """Create a cinematic establishing shot of the following environment.
+This is a LIVE-ACTION PHOTOGRAPH for a film production, not CGI or 3D render.
 
-Scene Description:
+## Scene Description
 {scene_description}
 
-Requirements:
-- High-quality cinematic photography
-- Professional lighting and composition
-- Detailed environment and atmosphere
-- NO people, NO characters, NO humans
-- Wide or establishing shot perspective
-- Film-grade visual quality
+## Prompt Structure (Apply Veo 3.1 Formula)
 
-Negative Prompt: people, characters, humans, person, man, woman, child, face, body"""
+### [Cinematography]
+Choose appropriate camera work for establishing the environment:
+- Camera angle: Wide establishing shot, aerial view, crane shot, sweeping panorama, high angle (show scope), eye-level perspective
+- Composition: Rule of thirds, leading lines, depth layers (foreground/midground/background), balanced framing
+- Lens: Wide-angle lens for expansive views, deep focus to capture environmental detail
+
+### [Environment Subject]
+The location and setting itself is the subject:
+- Identify the main environmental elements (landscape, architecture, interior space, natural features)
+- Emphasize spatial relationships and scale
+- Highlight distinctive characteristics of the location
+
+### [Atmospheric Context]
+Define the temporal and weather conditions:
+- Time of day: Golden hour (warm sunset/sunrise light), blue hour (twilight), midday sun, overcast day, night
+- Weather: Clear skies, scattered clouds, fog/mist, light rain, snow, storm clouds gathering
+- Season: Spring bloom, summer lushness, autumn colors, winter bareness (if relevant)
+
+### [Style & Ambiance]
+Establish the mood and visual aesthetic:
+- Lighting quality: Soft diffused natural light, dramatic shadows and highlights, volumetric light rays through atmosphere, ambient environmental glow, harsh direct sunlight
+- Mood: Serene and peaceful, ominous and foreboding, mysterious and enigmatic, vibrant and lively, desolate and abandoned, welcoming and warm
+- Aesthetic: Cinematic film photography, photorealistic, rich color palette or muted tones, high dynamic range
+
+## Critical Requirements
+
+**UNINHABITED ENVIRONMENT - No Human Presence:**
+- This is a pristine, empty, deserted location
+- Vacant space with no people, figures, or human activity
+- Unpopulated natural landscape or abandoned built environment
+- No human silhouettes, shadows, or reflections
+- No crowds, groups, individuals, or any human-like shapes
+- The environment exists in complete solitude
+
+**Technical Specifications:**
+- Shot on professional cinema camera (ARRI Alexa, RED, Sony Venice)
+- Cinematic color grading with film look (not digital/video look)
+- High dynamic range with rich environmental detail
+- Professional landscape or architectural photography standards
+- Natural depth of field characteristic of cinema lenses
+
+**Forbidden Elements:**
+- NO 3D rendering artifacts or CGI aesthetics
+- NO video game or synthetic imagery look
+- NO people, characters, humans, persons, faces, bodies
+- NO human-made activity or human presence indicators
+- NO mannequins or human-shaped objects
+
+Generate a detailed, cinematic establishing shot that captures the essence and atmosphere of this environment."""
 
     @classmethod
     def get_scene_image_prompt(cls, scene_description: str) -> str:
@@ -248,27 +289,55 @@ Negative Prompt: people, characters, humans, person, man, woman, child, face, bo
         return cls.SCENE_IMAGE_GENERATION.format(scene_description=scene_description)
 
     # 过渡视频提示词生成Prompt
-    TRANSITION_VIDEO = """你是一个国际获奖级的电影视频提示词生成专家。
-请根据以下两个分镜的描述，生成一个用于AI视频生成的英文提示词。
-这个提示词将用于生成两个分镜之间的过渡视频。
+    TRANSITION_VIDEO = """你是一个国际获奖级的电影视频提示词生成专家，精通 Veo 3.1 视频生成最佳实践。
+请根据以下两个分镜的描述，生成一个用于 AI 视频生成的英文提示词。
+这个提示词将用于生成两个分镜之间的过渡视频（使用首尾关键帧）。
 
-要求：
-1. 提示词必须是英文
-2. 描述要具体、详细，包含动作、光影、环境等细节
-3. 确保两个分镜之间的过渡自然流畅
-4. 只输出提示词本身，不要包含任何解释或标记
-5. 提示词开头明确视频中对话使用中文
-6. 场景中的声音和对话要使用自然语言描述
-7. **角色名称必须与输入完全一致，不允许翻译、音译或修改（例如：输入是"李明"，输出也必须是"李明"，不能变成"Li Ming"或其他形式）**
+## 核心要求
 
-两个分镜的描述：
+1. **提示词必须是英文**
+2. **使用 Veo 3.1 五部分公式**：
+   - [Cinematography] 摄影：镜头运动、构图、焦距
+   - [Subject] 主体：主要角色或焦点
+   - [Action] 动作：主体在做什么
+   - [Context] 环境：背景和环境元素
+   - [Style & Ambiance] 风格氛围：美学、情绪、光线
+
+3. **摄影词汇库**（根据场景选择合适的）：
+   - 镜头运动: dolly shot, tracking shot, crane shot, aerial view, slow pan, POV shot, arc shot, push in, pull back
+   - 构图: wide shot, medium shot, close-up, extreme close-up, two-shot, over-the-shoulder, low angle, high angle
+   - 焦距: shallow depth of field, deep focus, wide-angle lens, telephoto lens, rack focus, soft focus
+
+4. **音频指令格式**（重要！）：
+   - 对话：使用引号，例如 'Character says "对话内容" in Chinese'
+   - 音效：使用 'SFX:' 前缀，例如 'SFX: thunder cracks in the distance'
+   - 环境音：使用 'Ambient noise:' 前缀，例如 'Ambient noise: quiet hum of city traffic'
+
+5. **风格与氛围**：
+   - 光线：natural light, golden hour, soft window light, dramatic shadows, volumetric light rays, harsh fluorescent
+   - 情绪：melancholic, tense, joyful, mysterious, contemplative, energetic, serene
+   - 美学：cinematic, moody, vibrant, noir, retro, contemporary
+
+6. **角色名称保护**：
+   - **角色名称必须与输入完全一致，不允许翻译、音译或修改**
+   - 例如：输入是"李明"，输出也必须是"李明"，不能变成"Li Ming"
+
+7. **只输出提示词本身**，不要包含任何解释、标记或分段标题
+
+---
+
+## 两个分镜的描述
+
 {combined_text}
 
-示例参考：
+---
 
-**重要提示：所有示例中的角色名称都保持原始中文形式，不进行任何翻译或音译！**
+## 示例参考
 
-示例1（室内对话场景）：
+**重要：所有示例中的角色名称都保持原始中文形式！**
+
+### 示例1：对话场景 - 镜头推进过渡
+
 输入：
 分镜1: 特写，李明坐在办公桌前，表情严肃
 对话: "这个项目必须在周五前完成"
@@ -278,9 +347,10 @@ Negative Prompt: people, characters, humans, person, man, woman, child, face, bo
 角色: 王芳
 
 输出：
-Cinematic transition video with Chinese dialogue. Close-up of 李明 sitting at office desk with serious expression, saying "这个项目必须在周五前完成" in Chinese. Camera slowly pulls back revealing the modern office environment with soft overhead lighting. 王芳 gradually comes into frame, standing up from her chair with a worried expression, responding "时间太紧了，我需要更多人手" in Chinese. Natural office ambience with subtle keyboard typing sounds. Smooth camera movement creating seamless flow between the two shots.
+Smooth dolly shot transition with Chinese dialogue. Close-up of 李明 at office desk with serious expression, he says "这个项目必须在周五前完成" in Chinese with firm tone. Camera slowly pulls back and pans right, revealing the modern office interior with soft overhead fluorescent lighting. 王芳 comes into frame in medium shot, standing up from her chair with worried expression, she responds "时间太紧了，我需要更多人手" in Chinese. Ambient noise: quiet office atmosphere with subtle keyboard typing, distant phone ringing. Cinematic color grading with cool blue tones. Professional cinematography creating seamless narrative flow.
 
-示例2（动作场景）：
+### 示例2：动作场景 - 跟踪镜头
+
 输入：
 分镜1: 全景，张伟在街道上奔跑
 对话: 无
@@ -290,9 +360,10 @@ Cinematic transition video with Chinese dialogue. Close-up of 李明 sitting at 
 角色: 张伟
 
 输出：
-Dynamic action sequence with Chinese dialogue. Wide shot of 张伟 running through urban street, footsteps echoing on pavement. Camera follows his movement with smooth tracking shot. Gradual transition to close-up as he slows down and stops, breathing heavily. He catches his breath and says "终于甩掉他们了" in Chinese with relief. Urban street sounds, heavy breathing, distant traffic noise. Natural lighting with slight motion blur during running sequence.
+Dynamic tracking shot with Chinese dialogue. Wide shot of 张伟 sprinting through urban street at dusk, his footsteps echoing on wet pavement. Camera follows with smooth tracking movement, maintaining consistent framing. Gradual push in to close-up as he slows down and stops, breathing heavily with relief. He catches his breath and says "终于甩掉他们了" in Chinese with exhausted voice. SFX: heavy breathing, footsteps on pavement, distant car horn. Ambient noise: city traffic in background. Natural lighting with slight motion blur during running. Moody cinematic aesthetic with desaturated colors.
 
-示例3（情感场景）：
+### 示例3：情感场景 - 缓慢推进
+
 输入：
 分镜1: 中景，小雨坐在窗边，望向窗外
 对话: 无
@@ -302,7 +373,22 @@ Dynamic action sequence with Chinese dialogue. Wide shot of 张伟 running throu
 角色: 小雨
 
 输出：
-Emotional cinematic moment with Chinese dialogue. Medium shot of 小雨 sitting by the window, gazing outside with melancholic expression. Soft natural window light illuminating her face. Camera slowly pushes in for intimate close-up, revealing tears welling up in her eyes. She whispers "我真的很想念你" in Chinese with emotional trembling voice. Quiet ambient sound with distant rain drops, creating contemplative atmosphere. Gentle camera movement emphasizing emotional depth.
+Intimate slow push in with Chinese dialogue. Medium shot of 小雨 sitting by rain-streaked window, gazing outside with melancholic expression. Soft natural window light illuminating her face with gentle shadows. Camera slowly pushes in for emotional close-up, revealing tears welling up in her eyes. She whispers "我真的很想念你" in Chinese with trembling, emotional voice. SFX: gentle rain drops on window glass. Ambient noise: distant thunder, quiet room tone. Shallow depth of field with soft bokeh in background. Contemplative mood with warm, muted color palette. Cinematic film photography aesthetic.
+
+### 示例4：环境过渡 - 摇臂镜头
+
+输入：
+分镜1: 全景，城堡外的荒野，暴风雨
+对话: 无
+角色: 无
+分镜2: 中景，城堡大厅内，壁炉火光
+对话: 无
+角色: 无
+
+输出：
+Dramatic crane shot transition. Wide establishing shot of desolate wilderness outside ancient castle, storm clouds gathering overhead with lightning flashing in distance. Camera performs sweeping crane movement, rising up and moving toward castle entrance. Smooth transition to medium shot of grand hall interior, warm fireplace light flickering on stone walls. SFX: howling wind, thunder rumbling, crackling fire. Ambient noise: storm outside transitioning to quiet interior ambience. High contrast lighting from dark exterior to warm interior glow. Epic cinematic scope with rich atmospheric detail. Moody, ominous aesthetic shifting to warm refuge.
+
+---
 
 现在请为上述两个分镜生成过渡视频提示词："""
 

@@ -20,6 +20,13 @@ CRITICAL STYLE REQUIREMENTS:
 - Natural lighting and practical effects only
 - Photorealistic skin texture, fabric detail, environmental elements
 - Film grain and depth of field characteristic of cinema photography
+
+CINEMATOGRAPHY FOR VIDEO ANIMATION:
+- Composition should support camera movement (medium shots, two-shots work well)
+- Include depth layers for natural parallax when animated
+- Avoid extreme angles that limit transition possibilities
+- Frame with spatial context (not too tight) to allow camera adjustments
+- Establishing shots should show clear spatial relationships
 """
 
     # 技术规格
@@ -30,6 +37,14 @@ Technical Specifications:
 - Professional cinematography with intentional composition
 - Natural depth of field and bokeh
 - Realistic lighting (practical lights, natural light, or professional film lighting)
+
+Video-Ready Composition (This frame will be animated):
+- Clear subject with good spatial positioning for camera movement
+- Depth layers (foreground/midground/background) to enable parallax effects
+- Composition that allows for natural camera transitions (push in, pull back, pan)
+- Action potential: subject positioned to suggest movement or interaction
+- Avoid extreme close-ups that limit animation possibilities
+- Frame with breathing room for camera adjustments
 """
 
     # 禁止的元素
@@ -81,8 +96,12 @@ ABSOLUTELY FORBIDDEN:
             完整的提示词
         """
         if custom_prompt:
-            # 如果有自定义提示词，仍然添加风格约束
-            return f"{custom_prompt}\n\n{KeyframePromptBuilder.CORE_STYLE}"
+            # 自定义提示词仍然添加风格约束和视频就绪指导
+            return f"""{custom_prompt}
+
+{KeyframePromptBuilder.CORE_STYLE}
+
+{KeyframePromptBuilder.TECHNICAL_SPECS}"""
         
         # 1. 场景上下文
         scene_context = KeyframePromptBuilder._build_scene_context(scene)
