@@ -282,7 +282,7 @@ class TransitionService(BaseService):
         logger.info(f"准备并发创建 {len(transition_tasks)} 个过渡")
 
         # 测试只生成一个
-        transition_tasks = transition_tasks[:1]
+        # transition_tasks = transition_tasks[:1]
 
         # 6. 并发worker函数
         semaphore = asyncio.Semaphore(max_concurrent)

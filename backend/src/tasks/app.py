@@ -45,7 +45,7 @@ celery_app.conf.update(
     result_expires=3600,
     beat_schedule={
         "sync-video-status-every-60s": {
-            "task": "movie.sync_all_video_task_status",
+            "task": "movie.sync_transition_video_status",
             "schedule": 60.0,
         },
     }
