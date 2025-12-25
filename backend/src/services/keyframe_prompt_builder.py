@@ -42,6 +42,24 @@ ABSOLUTELY FORBIDDEN:
 - NO artificial/synthetic looking imagery
 - NO obvious digital manipulation
 """
+    
+    # 无人物场景的禁止元素（更强调排除人物）
+    NO_PEOPLE_FORBIDDEN_ELEMENTS = """
+ABSOLUTELY FORBIDDEN:
+- NO 3D rendering artifacts
+- NO CGI character models
+- NO video game aesthetics
+- NO anime or cartoon styles
+- NO artificial/synthetic looking imagery
+- NO obvious digital manipulation
+- NO people, human figures, characters, or persons of any kind
+- NO men, women, children, or human silhouettes
+- NO faces, bodies, or human body parts
+- NO shadows or reflections of people
+- NO crowds, groups, or individuals
+- NO human presence, portraits, or human-like shapes
+- NO mannequins or human-shaped objects
+"""
 
     @staticmethod
     def build_prompt(
@@ -80,6 +98,14 @@ ABSOLUTELY FORBIDDEN:
         if shot.dialogue:
             dialogue_hint = f"\nDialogue context: {shot.dialogue[:100]}"
         
+        # 5. 选择合适的禁止元素列表
+        # 如果分镜不包含人物，使用更严格的禁止列表
+        has_characters = shot.characters and len(shot.characters) > 0
+        forbidden_elements = (
+            KeyframePromptBuilder.FORBIDDEN_ELEMENTS if has_characters 
+            else KeyframePromptBuilder.NO_PEOPLE_FORBIDDEN_ELEMENTS
+        )
+        
         # 组合完整提示词
         full_prompt = f"""
 {KeyframePromptBuilder.CORE_STYLE}
@@ -95,7 +121,7 @@ SHOT DESCRIPTION:
 
 {KeyframePromptBuilder.TECHNICAL_SPECS}
 
-{KeyframePromptBuilder.FORBIDDEN_ELEMENTS}
+{forbidden_elements}
 
 Remember: This is a REAL PHOTOGRAPH from a LIVE-ACTION FILM, not a digital creation.
 """

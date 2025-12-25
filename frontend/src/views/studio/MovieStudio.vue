@@ -65,9 +65,20 @@
             @extract-shots="handleExtractShots"
           />
 
-          <!-- 步骤3: 关键帧生成 -->
-          <KeyframePanel
+          <!-- 步骤3: 场景图生成 -->
+          <SceneImagePanel
             v-show="currentStep === 3"
+            :scenes="sceneWorkflow.script.value?.scenes || []"
+            :can-generate="canGenerateSceneImages"
+            :api-keys="apiKeys"
+            :generating-ids="sceneWorkflow.generatingSceneImages.value"
+            @batch-generate="handleBatchGenerateSceneImages"
+            @generate-scene-image="handleGenerateSceneImage"
+          />
+
+          <!-- 步骤4: 关键帧生成 -->
+          <KeyframePanel
+            v-show="currentStep === 4"
             :scene-groups="shotWorkflow.sceneGroups.value"
             :can-generate="canGenerateKeyframes"
             :api-keys="apiKeys"
@@ -76,9 +87,9 @@
             @generate-keyframe="handleGenerateSingleKeyframe"
           />
 
-          <!-- 步骤4: 过渡视频 -->
+          <!-- 步骤5: 过渡视频 -->
           <TransitionPanel
-            v-show="currentStep === 4"
+            v-show="currentStep === 5"
             :transitions="transitionWorkflow.transitions.value"
             :creating="transitionWorkflow.creating.value"
             :generating="transitionWorkflow.generating.value"
@@ -89,8 +100,8 @@
             @generate-videos="handleGenerateTransitionVideos"
           />
 
-          <!-- 步骤5: 最终合成 -->
-          <div v-show="currentStep === 5" class="final-step">
+          <!-- 步骤6: 最终合成 -->
+          <div v-show="currentStep === 6" class="final-step">
             <el-result
               icon="success"
               title="所有步骤已完成"
@@ -127,6 +138,7 @@ import WorkflowStepper from '@/components/studio/WorkflowStepper.vue'
 import CharacterPanel from '@/components/studio/CharacterPanel.vue'
 import ScenePanel from '@/components/studio/ScenePanel.vue'
 import ShotPanel from '@/components/studio/ShotPanel.vue'
+import SceneImagePanel from '@/components/studio/SceneImagePanel.vue'
 import KeyframePanel from '@/components/studio/KeyframePanel.vue'
 import TransitionPanel from '@/components/studio/TransitionPanel.vue'
 import StudioDialogs from '@/components/studio/StudioDialogs.vue'
@@ -147,6 +159,7 @@ const {
   transitionWorkflow,
   canExtractScenes,
   canExtractShots,
+  canGenerateSceneImages,
   canGenerateKeyframes,
   canCreateTransitions,
   canGenerateTransitionVideos,
@@ -220,6 +233,20 @@ const handleBatchGenerateKeyframes = async (apiKeyId, model) => {
 
 const handleGenerateSingleKeyframe = async (shotId, apiKeyId, model, prompt) => {
   await shotWorkflow.generateSingleKeyframe(shotId, apiKeyId, model, prompt)
+  await loadData(true)
+}
+
+const handleBatchGenerateSceneImages = async (apiKeyId, model) => {
+  if (!sceneWorkflow.script.value?.id) {
+    ElMessage.warning('请先提取场景')
+    return
+  }
+  await sceneWorkflow.generateSceneImages(sceneWorkflow.script.value.id, apiKeyId, model)
+  await loadData(true)
+}
+
+const handleGenerateSceneImage = async (sceneId, apiKeyId, model, prompt) => {
+  await sceneWorkflow.generateSingleSceneImage(sceneId, apiKeyId, model, prompt)
   await loadData(true)
 }
 

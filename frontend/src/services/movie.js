@@ -58,6 +58,27 @@ export const movieService = {
         return post(`/movie/chapters/${chapterId}/scenes`, data)
     },
 
+    /**
+     * 批量生成场景图
+     */
+    batchGenerateSceneImages(scriptId, data) {
+        return post(`/movie/scripts/${scriptId}/scene-images`, data)
+    },
+
+    /**
+     * 生成单个场景图
+     */
+    generateSceneImage(sceneId, data) {
+        return post(`/movie/scenes/${sceneId}/scene-image`, data)
+    },
+
+    /**
+     * 重新生成场景图
+     */
+    regenerateSceneImage(sceneId, data) {
+        return post(`/movie/scenes/${sceneId}/regenerate-scene-image`, data)
+    },
+
     // ==================== 分镜管理 ====================
 
     /**

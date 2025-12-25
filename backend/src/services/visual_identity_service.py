@@ -354,7 +354,8 @@ class VisualIdentityService(BaseService):
             reference_images.append(shot.scene.scene_image_url)
             logger.info(f'添加场景参考图: {shot.scene.scene_image_url}')
         else:
-            logger.warning(f'场景 {shot.scene.id} 没有场景图，建议先生成场景图以保持场景一致性')
+            # 不允许生成
+            raise ValueError(f'场景 {shot.scene.id} 没有场景图，建议先生成场景图以保持场景一致性')
         
         # 然后添加角色参考图
         if shot.characters:
@@ -374,10 +375,9 @@ class VisualIdentityService(BaseService):
                     reference_images.append(char.avatar_url)
                     logger.info(f'添加角色 {char.name} 的参考图: {char.avatar_url}')
         
-        # 如果分镜不包含人物，添加负面提示词
-        if not shot.characters or len(shot.characters) == 0:
-            final_prompt += "\n\nNegative Prompt: people, characters, humans, person, man, woman, face, body"
-            logger.info("分镜不包含人物，添加负面提示词")
+        
+        # 注意：无人物场景的禁止元素已在KeyframePromptBuilder中处理
+        
         
         
         # 5. 生成图像

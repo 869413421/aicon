@@ -10,6 +10,7 @@ import { useTaskPoller } from './useTaskPoller'
 export function useSceneWorkflow() {
     const script = ref(null)
     const extracting = ref(false)
+    const generatingSceneImages = ref(new Set())
 
     const loadScript = async (chapterId) => {
         if (!chapterId) return
@@ -49,10 +50,68 @@ export function useSceneWorkflow() {
         }
     }
 
+    const generateSceneImages = async (scriptId, apiKeyId, model) => {
+        try {
+            const response = await movieService.batchGenerateSceneImages(scriptId, {
+                api_key_id: apiKeyId,
+                model
+            })
+
+            if (response.task_id) {
+                ElMessage.success('场景图批量生成任务已提交')
+                const { startPolling } = useTaskPoller()
+                startPolling(response.task_id, async () => {
+                    ElMessage.success('场景图批量生成完成')
+                    // 重新加载script以获取更新的场景图
+                    if (script.value?.chapter_id) {
+                        await loadScript(script.value.chapter_id)
+                    }
+                }, (error) => {
+                    ElMessage.error(`场景图生成失败: ${error.message}`)
+                })
+            }
+        } catch (error) {
+            ElMessage.error('场景图生成失败')
+        }
+    }
+
+    const generateSingleSceneImage = async (sceneId, apiKeyId, model, prompt) => {
+        generatingSceneImages.value.add(sceneId)
+        try {
+            const response = await movieService.generateSceneImage(sceneId, {
+                api_key_id: apiKeyId,
+                model,
+                prompt
+            })
+
+            if (response.task_id) {
+                ElMessage.success('场景图生成任务已提交')
+                const { startPolling } = useTaskPoller()
+                startPolling(response.task_id, async () => {
+                    ElMessage.success('场景图生成完成')
+                    generatingSceneImages.value.delete(sceneId)
+                    // 重新加载script
+                    if (script.value?.chapter_id) {
+                        await loadScript(script.value.chapter_id)
+                    }
+                }, (error) => {
+                    ElMessage.error(`场景图生成失败: ${error.message}`)
+                    generatingSceneImages.value.delete(sceneId)
+                })
+            }
+        } catch (error) {
+            ElMessage.error('场景图生成失败')
+            generatingSceneImages.value.delete(sceneId)
+        }
+    }
+
     return {
         script,
         extracting,
+        generatingSceneImages,
         loadScript,
-        extractScenes
+        extractScenes,
+        generateSceneImages,
+        generateSingleSceneImage
     }
 }

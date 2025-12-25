@@ -43,6 +43,11 @@ const steps = [
     icon: Camera
   },
   {
+    title: '场景图生成',
+    description: '生成场景环境参考图',
+    icon: Picture
+  },
+  {
     title: '关键帧生成',
     description: '生成分镜关键帧图片',
     icon: Picture

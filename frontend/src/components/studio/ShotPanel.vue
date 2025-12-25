@@ -9,7 +9,7 @@
           :disabled="!canExtract"
           @click="handleExtractClick"
         >
-          提取分镜
+          {{ hasShots ? '重新提取分镜' : '提取分镜' }}
         </el-button>
       </div>
     </div>
@@ -84,6 +84,61 @@
       </el-collapse>
     </div>
 
+    <!-- 警告对话框 -->
+    <el-dialog
+      v-model="showWarningDialog"
+      title="重新提取分镜"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <div class="warning-content">
+        <div class="warning-icon">
+          <el-icon :size="60" color="#f56c6c">
+            <WarningFilled />
+          </el-icon>
+        </div>
+        
+        <div class="warning-title">
+          <h3>此操作将删除以下所有数据</h3>
+        </div>
+
+        <div class="warning-list">
+          <div class="warning-item">
+            <el-icon color="#f56c6c"><Delete /></el-icon>
+            <span>所有现有分镜脚本</span>
+          </div>
+          <div class="warning-item">
+            <el-icon color="#f56c6c"><Delete /></el-icon>
+            <span>所有场景环境图</span>
+          </div>
+          <div class="warning-item">
+            <el-icon color="#f56c6c"><Delete /></el-icon>
+            <span>所有关键帧图片</span>
+          </div>
+        </div>
+
+        <el-alert
+          type="error"
+          :closable="false"
+          show-icon
+        >
+          <template #title>
+            <strong>⚠️ 此操作不可撤销，请谨慎操作！</strong>
+          </template>
+        </el-alert>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showWarningDialog = false" size="large">取消</el-button>
+          <el-button type="danger" @click="handleWarningConfirm" size="large">
+            <el-icon><Delete /></el-icon>
+            确认删除并重新提取
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- API Key选择对话框 -->
     <el-dialog
       v-model="showDialog"
@@ -129,8 +184,9 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { WarningFilled, Delete } from '@element-plus/icons-vue'
 import api from '@/services/api'
 
 const props = defineProps({
@@ -156,12 +212,18 @@ const emit = defineEmits(['extract-shots'])
 
 const activeScenes = ref([])
 const showDialog = ref(false)
+const showWarningDialog = ref(false)
 const formData = ref({
   apiKeyId: '',
   model: ''
 })
 const modelOptions = ref([])
 const loadingModels = ref(false)
+
+// 计算是否已有分镜
+const hasShots = computed(() => {
+  return props.sceneGroups.some(group => group.shots && group.shots.length > 0)
+})
 
 // 监听API Key变化，自动加载模型列表
 watch(() => formData.value.apiKeyId, async (newKeyId) => {
@@ -191,6 +253,22 @@ watch(() => formData.value.apiKeyId, async (newKeyId) => {
 })
 
 const handleExtractClick = () => {
+  // 如果已有分镜，先显示警告对话框
+  if (hasShots.value) {
+    showWarningDialog.value = true
+  } else {
+    // 没有分镜，直接显示提取对话框
+    formData.value = {
+      apiKeyId: props.apiKeys[0]?.id || '',
+      model: ''
+    }
+    showDialog.value = true
+  }
+}
+
+const handleWarningConfirm = () => {
+  showWarningDialog.value = false
+  // 确认后显示提取对话框
   formData.value = {
     apiKeyId: props.apiKeys[0]?.id || '',
     model: ''

@@ -48,9 +48,16 @@ export function useMovieWorkflow() {
         return sceneWorkflow.script.value?.scenes?.length > 0
     })
 
+    const canGenerateSceneImages = computed(() => {
+        return shotWorkflow.allShots.value.length > 0
+    })
+
     const canGenerateKeyframes = computed(() => {
+        // 检查是否所有场景都有场景图
+        const allScenesHaveImages = sceneWorkflow.script.value?.scenes?.every(s => s.scene_image_url) || false
         return shotWorkflow.allShots.value.length > 0 &&
-            characterWorkflow.characters.value.every(c => c.avatar_url)
+            characterWorkflow.characters.value.every(c => c.avatar_url) &&
+            allScenesHaveImages
     })
 
     const canCreateTransitions = computed(() => {
@@ -69,12 +76,14 @@ export function useMovieWorkflow() {
             currentStep.value = 1 // Scenes
         } else if (!shotWorkflow.allShots.value.length) {
             currentStep.value = 2 // Shots
+        } else if (!sceneWorkflow.script.value.scenes?.every(s => s.scene_image_url)) {
+            currentStep.value = 3 // Scene Images
         } else if (!shotWorkflow.allShots.value.every(s => s.keyframe_url)) {
-            currentStep.value = 3 // Keyframes
+            currentStep.value = 4 // Keyframes
         } else if (!transitionWorkflow.transitions.value.length) {
-            currentStep.value = 4 // Transitions
+            currentStep.value = 5 // Transitions
         } else {
-            currentStep.value = 5 // Final
+            currentStep.value = 6 // Final
         }
     }
 
@@ -167,6 +176,7 @@ export function useMovieWorkflow() {
         // Computed
         canExtractScenes,
         canExtractShots,
+        canGenerateSceneImages,
         canGenerateKeyframes,
         canCreateTransitions,
         canGenerateTransitionVideos,
