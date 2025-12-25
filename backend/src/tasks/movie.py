@@ -166,11 +166,27 @@ async def movie_generate_single_transition(db_session: AsyncSession, self, trans
     logger.info(f"Celery任务完成: movie_generate_single_transition, task_id={task_id}")
     return {"success": True, "video_task_id": task_id}
 
-# Removed: movie_batch_produce_shots - obsolete, replaced by transition workflow
-
-# Removed: movie_regenerate_keyframe - obsolete, shots now only have single keyframe
-
-# Removed: movie_regenerate_last_frame - obsolete, shots now only have single keyframe
+@celery_app.task(
+    bind=True,
+    max_retries=0,
+    name="movie.sync_transition_video_status"
+)
+@async_task_decorator
+async def sync_transition_video_status(db_session: AsyncSession, self, api_key_id: str):
+    """
+    同步过渡视频任务状态（定时任务）
+    
+    Args:
+        api_key_id: API Key ID
+    """
+    from src.services.transition_service import TransitionService
+    logger.info(f"Celery任务开始: sync_transition_video_status")
+    
+    service = TransitionService(db_session)
+    result = await service.sync_transition_video_status(api_key_id)
+    
+    logger.info(f"Celery任务完成: sync_transition_video_status, 结果: {result}")
+    return result
 
 # Removed: sync_all_video_task_status - obsolete, replaced by transition video status sync
 

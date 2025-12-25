@@ -9,7 +9,7 @@ from src.core.database import initialize_database, close_database_connections
 from src.tasks.base import run_async_task
 
 celery_app = Celery(
-    "aicon2",
+    "aicon",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
     include=[

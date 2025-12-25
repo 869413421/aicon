@@ -365,50 +365,139 @@ class TransitionService(BaseService):
         Returns:
             str: 视频任务ID
         """
-        # 1. 加载过渡记录
-        transition = await self.db_session.get(MovieShotTransition, transition_id, options=[
-            selectinload(MovieShotTransition.from_shot),
-            selectinload(MovieShotTransition.to_shot)
-        ])
+        # 加载过渡记录
+        transition = await self.db_session.get(MovieShotTransition, transition_id)
         if not transition:
             raise ValueError(f"未找到过渡: {transition_id}")
-
-        # 2. 验证关键帧存在
-        if not transition.from_shot.keyframe_url or not transition.to_shot.keyframe_url:
-            raise ValueError("分镜关键帧未生成")
-
-        # 3. 加载API Key
-        from src.models.chapter import Chapter
-        scene = await self.db_session.get(MovieScene, transition.from_shot.scene_id, options=[
-            selectinload(MovieScene.script)
-        ])
-        chapter = await self.db_session.get(Chapter, scene.script.chapter_id, options=[
-            selectinload(Chapter.project)
-        ])
         
+        if not transition.video_prompt:
+            raise ValueError(f"过渡 {transition_id} 没有视频提示词")
+        
+        # 加载API Key
         api_key_service = APIKeyService(self.db_session)
-        api_key = await api_key_service.get_api_key_by_id(api_key_id, str(chapter.project.owner_id))
+        api_key = await api_key_service.get_api_key_by_id(api_key_id)
         
-        video_provider = ProviderFactory.create(
-            provider=api_key.provider,
+        # 使用VectorEngineProvider生成视频
+        from src.services.provider.vector_engine_provider import VectorEngineProvider
+        
+        video_provider = VectorEngineProvider(
             api_key=api_key.get_api_key(),
             base_url=api_key.base_url
         )
-
-        # 4. 调用视频生成API
-        result = await video_provider.generate_video(
+        
+        # 调用视频生成
+        logger.info(f"开始生成过渡视频: {transition_id}, 模型: {video_model}")
+        result = await video_provider.create_video(
             prompt=transition.video_prompt,
-            first_frame=transition.from_shot.keyframe_url,
-            last_frame=transition.to_shot.keyframe_url,
             model=video_model
         )
-
-        # 5. 更新过渡记录
+        
+        # 更新过渡记录
         transition.video_task_id = result.get("task_id")
         transition.status = "processing"
         await self.db_session.commit()
+        
+        logger.info(f"过渡视频生成任务已提交: {transition_id}, task_id: {result.get('task_id')}")
+        return result.get("task_id")
 
-        logger.info(f"过渡视频生成任务已提交: {transition.video_task_id}")
-        return transition.video_task_id
+    async def sync_transition_video_status(self, api_key_id: str) -> dict:
+        """
+        同步过渡视频任务状态
+        
+        Args:
+            api_key_id: API Key ID（用于调用VectorEngine API）
+            
+        Returns:
+            dict: 同步统计信息
+        """
+        import httpx
+        from fastapi import UploadFile
+        import io
+        from src.core.storage import storage_client
+        
+        logger.info("开始同步过渡视频任务状态")
+        
+        # 加载API Key
+        api_key_service = APIKeyService(self.db_session)
+        api_key = await api_key_service.get_api_key_by_id(api_key_id)
+        
+        # 创建VectorEngine provider
+        from src.services.provider.vector_engine_provider import VectorEngineProvider
+        provider = VectorEngineProvider(
+            api_key=api_key.get_api_key(),
+            base_url=api_key.base_url
+        )
+        
+        # 查询所有processing状态的过渡
+        stmt = select(MovieShotTransition).where(
+            MovieShotTransition.status == "processing",
+            MovieShotTransition.video_task_id.isnot(None)
+        )
+        result = await self.db_session.execute(stmt)
+        transitions = result.scalars().all()
+        
+        if not transitions:
+            logger.info("没有需要同步的过渡视频任务")
+            return {"synced": 0, "completed": 0, "failed": 0}
+        
+        logger.info(f"找到 {len(transitions)} 个待同步的过渡视频任务")
+        
+        synced_count = 0
+        completed_count = 0
+        failed_count = 0
+        
+        for transition in transitions:
+            try:
+                # 查询任务状态
+                status_data = await provider.get_task_status(transition.video_task_id)
+                status = status_data.get("status")
+                
+                if status == "completed":
+                    # 获取视频内容
+                    content_data = await provider.get_video_content(transition.video_task_id)
+                    video_url = content_data.get("video_url")
+                    
+                    if video_url:
+                        # 下载视频
+                        async with httpx.AsyncClient() as client:
+                            response = await client.get(video_url)
+                            video_content = response.content
+                        
+                        # 上传到MinIO
+                        upload_file = UploadFile(
+                            filename=f"{transition.id}.mp4",
+                            file=io.BytesIO(video_content)
+                        )
+                        
+                        storage_result = await storage_client.upload_file(
+                            user_id="system",  # TODO: 获取正确的user_id
+                            file=upload_file,
+                            metadata={"transition_id": str(transition.id)}
+                        )
+                        
+                        transition.video_url = storage_result["object_key"]
+                        transition.status = "completed"
+                        completed_count += 1
+                        logger.info(f"过渡视频完成: {transition.id}")
+                    
+                elif status == "failed":
+                    transition.status = "failed"
+                    failed_count += 1
+                    logger.error(f"过渡视频失败: {transition.id}")
+                
+                synced_count += 1
+                
+            except Exception as e:
+                logger.error(f"同步过渡 {transition.id} 失败: {e}")
+                failed_count += 1
+        
+        await self.db_session.commit()
+        
+        logger.info(f"同步完成: 总计 {synced_count}, 完成 {completed_count}, 失败 {failed_count}")
+        return {
+            "synced": synced_count,
+            "completed": completed_count,
+            "failed": failed_count
+        }
 
 __all__ = ["TransitionService"]
