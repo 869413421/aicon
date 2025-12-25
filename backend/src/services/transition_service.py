@@ -162,37 +162,63 @@ class TransitionService(BaseService):
         if not script:
             raise ValueError(f"未找到剧本: {script_id}")
 
-        # 2. 收集所有分镜并按顺序排列
+        # 2. 收集所有分镜并按顺序排列，只保留有关键帧的分镜
         all_shots = []
         for scene in sorted(script.scenes, key=lambda s: s.order_index):
             for shot in sorted(scene.shots, key=lambda s: s.order_index):
-                all_shots.append(shot)
+                # 只添加有关键帧的分镜
+                if shot.keyframe_url:
+                    all_shots.append(shot)
 
         if len(all_shots) < 2:
-            return {"success": 0, "failed": 0, "total": 0, "message": "分镜数量不足"}
+            return {"success": 0, "failed": 0, "total": 0, "message": "有关键帧的分镜数量不足（需要至少2个）"}
 
-        logger.info(f"开始创建 {len(all_shots) - 1} 个过渡视频")
+        logger.info(f"找到 {len(all_shots)} 个有关键帧的分镜，准备创建 {len(all_shots) - 1} 个过渡")
 
-        # 3. 创建过渡
+        # 3. 查询已存在的过渡
+        stmt = select(MovieShotTransition).where(MovieShotTransition.script_id == script_id)
+        result = await self.db_session.execute(stmt)
+        existing_transitions = result.scalars().all()
+        
+        # 创建已存在过渡的集合（用于快速查找）
+        existing_pairs = {(str(t.from_shot_id), str(t.to_shot_id)) for t in existing_transitions}
+        logger.info(f"已存在 {len(existing_transitions)} 个过渡")
+
+        # 4. 创建过渡（跳过已存在的）
         created_transitions = []
+        skipped_count = 0
+        
         for i in range(len(all_shots) - 1):
+            from_shot_id = str(all_shots[i].id)
+            to_shot_id = str(all_shots[i + 1].id)
+            
+            # 检查是否已存在
+            if (from_shot_id, to_shot_id) in existing_pairs:
+                logger.info(f"跳过已存在的过渡: {from_shot_id} -> {to_shot_id}")
+                skipped_count += 1
+                continue
+            
             try:
                 transition = await self.create_transition(
                     script_id=script_id,
-                    from_shot_id=str(all_shots[i].id),
-                    to_shot_id=str(all_shots[i + 1].id),
+                    from_shot_id=from_shot_id,
+                    to_shot_id=to_shot_id,
                     order_index=i + 1,
                     api_key_id=api_key_id,
                     model=model
                 )
                 created_transitions.append(transition)
+                logger.info(f"创建过渡 {i+1}: {from_shot_id} -> {to_shot_id}")
             except Exception as e:
                 logger.error(f"创建过渡 {i+1} 失败: {e}")
 
+        total_possible = len(all_shots) - 1
         return {
             "success": len(created_transitions),
-            "failed": (len(all_shots) - 1) - len(created_transitions),
-            "total": len(all_shots) - 1
+            "failed": total_possible - len(created_transitions) - skipped_count,
+            "skipped": skipped_count,
+            "total": total_possible,
+            "message": f"创建完成: 新建 {len(created_transitions)}, 跳过 {skipped_count}"
         }
 
     async def generate_transition_video(
