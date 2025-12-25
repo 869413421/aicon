@@ -92,6 +92,8 @@ async def get_transition(
     current_user: User = Depends(get_current_user_required)
 ):
     """获取单个过渡视频记录"""
+    from datetime import timedelta
+    from src.utils.storage import get_storage_client
     from src.models.movie import MovieShotTransition
     
     transition = await db.get(MovieShotTransition, transition_id)
@@ -99,7 +101,30 @@ async def get_transition(
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="过渡不存在")
     
-    return transition
+    # 转换video_url为presigned URL
+    video_url = None
+    if transition.video_url:
+        try:
+            storage_client = await get_storage_client()
+            video_url = storage_client.get_presigned_url(transition.video_url, expires=timedelta(hours=1))
+        except Exception as e:
+            logger.warning(f"获取视频URL失败: {e}")
+            video_url = transition.video_url
+    
+    return {
+        "id": str(transition.id),
+        "script_id": str(transition.script_id),
+        "from_shot_id": str(transition.from_shot_id),
+        "to_shot_id": str(transition.to_shot_id),
+        "order_index": transition.order_index,
+        "video_prompt": transition.video_prompt,
+        "video_url": video_url,
+        "video_task_id": transition.video_task_id,
+        "status": transition.status,
+        "error_message": transition.error_message,
+        "created_at": transition.created_at.isoformat() if transition.created_at else None,
+        "updated_at": transition.updated_at.isoformat() if transition.updated_at else None
+    }
 
 @router.put("/transitions/{transition_id}", summary="更新过渡提示词")
 async def update_transition(
