@@ -27,8 +27,11 @@ class TransitionService(BaseService):
         self,
         from_shot_description: str,
         from_shot_dialogue: str,
+        from_shot_characters: list,
         to_shot_description: str,
         to_shot_dialogue: str,
+        to_shot_characters: list,
+        character_details: dict,  # {character_name: visual_traits}
         api_key,
         model: str = None
     ) -> str:
@@ -38,8 +41,11 @@ class TransitionService(BaseService):
         Args:
             from_shot_description: 起始分镜描述
             from_shot_dialogue: 起始分镜对话
+            from_shot_characters: 起始分镜角色列表
             to_shot_description: 结束分镜描述
             to_shot_dialogue: 结束分镜对话
+            to_shot_characters: 结束分镜角色列表
+            character_details: 角色详细信息字典
             api_key: API Key对象
             model: 模型名称
             
@@ -54,13 +60,26 @@ class TransitionService(BaseService):
 
         from src.services.movie_prompts import MoviePromptTemplates
 
+        # 构建角色信息
+        character_info = ""
+        all_characters = set(from_shot_characters or []) | set(to_shot_characters or [])
+        if all_characters and character_details:
+            char_descriptions = []
+            for char_name in all_characters:
+                if char_name in character_details:
+                    char_descriptions.append(f"- {char_name}: {character_details[char_name]}")
+            if char_descriptions:
+                character_info = "\n\n角色信息：\n" + "\n".join(char_descriptions)
+
         combined_text = f"""分镜1:
 {from_shot_description}
 对话: {from_shot_dialogue}
+角色: {', '.join(from_shot_characters) if from_shot_characters else '无'}
 
 分镜2:
 {to_shot_description}
 对话: {to_shot_dialogue}
+角色: {', '.join(to_shot_characters) if to_shot_characters else '无'}{character_info}
 """
 
         prompt = MoviePromptTemplates.get_transition_video_prompt(combined_text)
@@ -99,6 +118,8 @@ class TransitionService(BaseService):
         """
         # 加载API Key
         from src.models.chapter import Chapter
+        from src.models.movie import MovieCharacter
+        
         scene = await self.db_session.get(MovieScene, from_shot.scene_id, options=[
             selectinload(MovieScene.script)
         ])
@@ -109,11 +130,26 @@ class TransitionService(BaseService):
         api_key_service = APIKeyService(self.db_session)
         api_key = await api_key_service.get_api_key_by_id(api_key_id, str(chapter.project.owner_id))
         
+        # 加载角色信息
+        character_details = {}
+        all_characters = set(from_shot.characters or []) | set(to_shot.characters or [])
+        if all_characters:
+            stmt = select(MovieCharacter).where(
+                MovieCharacter.project_id == chapter.project_id,
+                MovieCharacter.name.in_(all_characters)
+            )
+            result = await self.db_session.execute(stmt)
+            characters = result.scalars().all()
+            character_details = {char.name: char.visual_traits for char in characters if char.visual_traits}
+        
         return await self._generate_transition_prompt(
             from_shot_description=from_shot.shot,
             from_shot_dialogue=from_shot.dialogue or '无',
+            from_shot_characters=from_shot.characters or [],
             to_shot_description=to_shot.shot,
             to_shot_dialogue=to_shot.dialogue or '无',
+            to_shot_characters=to_shot.characters or [],
+            character_details=character_details,
             api_key=api_key,
             model=model
         )
@@ -216,6 +252,8 @@ class TransitionService(BaseService):
 
         # 4. 预加载API Key和项目信息（避免在协程中访问数据库）
         from src.models.chapter import Chapter
+        from src.models.movie import MovieCharacter
+        
         scene = await self.db_session.get(MovieScene, all_shots[0].scene_id, options=[
             selectinload(MovieScene.script)
         ])
@@ -226,7 +264,24 @@ class TransitionService(BaseService):
         api_key_service = APIKeyService(self.db_session)
         api_key = await api_key_service.get_api_key_by_id(api_key_id, str(chapter.project.owner_id))
 
-        # 5. 准备需要创建的过渡任务（提取所有需要的数据）
+        # 5. 预加载所有角色信息
+        character_details = {}
+        all_character_names = set()
+        for shot in all_shots:
+            if shot.characters:
+                all_character_names.update(shot.characters)
+        
+        if all_character_names:
+            stmt = select(MovieCharacter).where(
+                MovieCharacter.project_id == chapter.project_id,
+                MovieCharacter.name.in_(all_character_names)
+            )
+            result = await self.db_session.execute(stmt)
+            characters = result.scalars().all()
+            character_details = {char.name: char.visual_traits for char in characters if char.visual_traits}
+            logger.info(f"加载了 {len(character_details)} 个角色的视觉信息")
+
+        # 6. 准备需要创建的过渡任务（提取所有需要的数据）
         transition_tasks = []
         skipped_count = 0
         
@@ -249,8 +304,10 @@ class TransitionService(BaseService):
                 'to_shot_id': to_shot_id,
                 'from_shot_description': from_shot.shot,
                 'from_shot_dialogue': from_shot.dialogue or '无',
+                'from_shot_characters': from_shot.characters or [],
                 'to_shot_description': to_shot.shot,
                 'to_shot_dialogue': to_shot.dialogue or '无',
+                'to_shot_characters': to_shot.characters or [],
             })
 
         if not transition_tasks:
@@ -264,7 +321,7 @@ class TransitionService(BaseService):
 
         logger.info(f"准备并发创建 {len(transition_tasks)} 个过渡")
 
-        # 6. 并发worker函数
+        # 7. 并发worker函数
         semaphore = asyncio.Semaphore(max_concurrent)
         
         async def _create_transition_worker(task_data: Dict[str, Any]):
@@ -274,8 +331,11 @@ class TransitionService(BaseService):
                     video_prompt = await self._generate_transition_prompt(
                         from_shot_description=task_data['from_shot_description'],
                         from_shot_dialogue=task_data['from_shot_dialogue'],
+                        from_shot_characters=task_data['from_shot_characters'],
                         to_shot_description=task_data['to_shot_description'],
                         to_shot_dialogue=task_data['to_shot_dialogue'],
+                        to_shot_characters=task_data['to_shot_characters'],
+                        character_details=character_details,
                         api_key=api_key,
                         model=model
                     )
