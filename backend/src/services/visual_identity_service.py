@@ -338,13 +338,51 @@ class VisualIdentityService(BaseService):
             )
             logger.info(f"使用构建器生成的专业提示词（长度: {len(final_prompt)}字符）")
         
-        # 5. 生成图像
-        logger.info(f"开始生成关键帧: shot_id={shot_id}, model={model}")
-        result = await provider.generate_image(
-            prompt=final_prompt,
-            model=model
-        )
+        # 4.5 获取分镜中角色的参考图
+        reference_images = []
+        if shot.characters:
+            from src.models.movie import MovieCharacter
+            # 获取角色对象
+            project_id = shot.scene.script.chapter.project_id
+            stmt_chars = select(MovieCharacter).where(
+                MovieCharacter.project_id == project_id,
+                MovieCharacter.name.in_(shot.characters)
+            )
+            chars_result = await self.db_session.execute(stmt_chars)
+            characters = chars_result.scalars().all()
+            
+            # 收集角色的参考图URL
+            for char in characters:
+                if char.avatar_url:
+                    reference_images.append(char.avatar_url)
+                    logger.info(f'添加角色 {char.name} 的参考图: {char.avatar_url}')
         
+        
+        # 5. 生成图像
+        logger.info(f"开始生成关键帧: shot_id={shot_id}, model={model}, 参考图数量={len(reference_images)}")
+
+        if reference_images:
+
+            result = await provider.generate_image(
+
+                prompt=final_prompt,
+
+                model=model,
+
+                reference_images=reference_images
+
+            )
+
+        else:
+
+            result = await provider.generate_image(
+
+                prompt=final_prompt,
+
+                model=model
+
+            )
+
         # 6. 提取并上传图片（使用通用工具函数，支持base64格式）
         from src.utils.image_utils import extract_and_upload_image
         

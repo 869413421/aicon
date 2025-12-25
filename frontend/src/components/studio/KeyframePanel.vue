@@ -80,6 +80,20 @@
                 <el-icon :size="40"><Picture /></el-icon>
                 <p>待生成关键帧</p>
               </div>
+
+<!-- 分镜包含的角色 -->
+              <div v-if="shot.characters && shot.characters.length > 0" class="shot-characters">
+                <el-tag 
+                  v-for="charName in shot.characters" 
+                  :key="charName"
+                  size="small"
+                  type="success"
+                  style="margin-right: 4px; margin-bottom: 4px;"
+                >
+                  {{ charName }}
+                </el-tag>
+              </div>
+
             </div>
           </div>
         </el-collapse-item>
@@ -461,6 +475,29 @@ const handlePreviewImage = (url) => {
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.shot-description {
+  margin-bottom: 12px;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.shot-description p {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.shot-characters {
+  margin-top: 12px;
+  margin-bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .keyframe-image {
