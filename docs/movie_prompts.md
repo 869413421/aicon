@@ -11,7 +11,8 @@
 3. [场景提取Prompt](#3-场景提取prompt)
 4. [分镜提取Prompt](#4-分镜提取prompt)
 5. [场景图生成Prompt](#5-场景图生成prompt)
-6. [过渡视频Prompt生成](#6-过渡视频prompt生成)
+6. [关键帧生成Prompt](#6-关键帧生成prompt)
+7. [过渡视频Prompt生成](#7-过渡视频prompt生成)
 
 ---
 
@@ -486,7 +487,163 @@ Generate a detailed, cinematic establishing shot that captures the essence and a
 
 ---
 
-## 6. 过渡视频Prompt生成
+## 6. 关键帧生成Prompt
+
+**用途**: 为分镜生成关键帧图片,支持视觉连续性(接力式生成)
+
+**文件位置**: `backend/src/services/keyframe_prompt_builder.py` - `KeyframePromptBuilder`
+
+**输入变量**:
+- `{shot}`: 分镜对象
+- `{scene}`: 场景对象
+- `{characters}`: 角色列表
+- `{custom_prompt}`: 自定义提示词(可选)
+- `{previous_shot}`: 上一个分镜对象(可选,用于视觉连续性)
+
+**输出格式**: 英文图像生成提示词
+
+### 核心特性
+
+#### 视觉连续性支持
+- **第一个分镜**: 使用场景图作为主要视觉参考,建立场景的视觉基础
+- **后续分镜**: 引用上一个分镜的描述,保持光线、色调、氛围一致
+
+#### 参考图策略
+- **第一个分镜**: 场景图 + 角色头像
+- **后续分镜**: 上一个分镜的关键帧 + 角色头像
+
+### Prompt结构
+
+```
+CRITICAL STYLE REQUIREMENTS:
+- This MUST be a LIVE-ACTION PHOTOGRAPH, not 3D render, not CGI, not animation
+- Real human actors in real physical locations
+- Captured with professional cinema cameras (ARRI, RED, Sony Venice)
+...
+
+SCENE CONTEXT:
+{场景描述}
+
+VISUAL CONTINUITY:
+[第一个分镜]
+This is the FIRST shot in this scene. Use the scene image as the primary visual reference 
+for environment, lighting, and atmosphere. Establish the visual foundation for subsequent shots.
+
+[后续分镜]
+This shot CONTINUES from the previous shot. Maintain visual consistency:
+- Previous shot description: {上一个分镜描述}
+- Keep consistent lighting, color palette, and atmosphere
+- Ensure smooth visual transition from previous frame
+- Characters should maintain consistent appearance and positioning
+- Environment elements should show logical progression
+
+SHOT DESCRIPTION:
+{分镜描述}
+{对话内容(如果有)}
+
+CHARACTERS IN SHOT (Real actors):
+- {角色名}: {视觉特征}
+...
+
+Technical Specifications:
+...
+
+ABSOLUTELY FORBIDDEN:
+- NO 3D rendering artifacts
+- NO CGI character models
+...
+```
+
+### 示例
+
+#### 示例1: 第一个分镜(无人物)
+
+**输入**:
+- 场景: 暴雨中的城墙外,夜晚
+- 分镜: 全景镜头,城墙在雨中矗立,城门半掩
+- 角色: 无
+- 上一个分镜: 无
+
+**生成的Prompt**:
+```
+CRITICAL STYLE REQUIREMENTS:
+- This MUST be a LIVE-ACTION PHOTOGRAPH, not 3D render, not CGI, not animation
+- Real human actors in real physical locations
+- Captured with professional cinema cameras (ARRI, RED, Sony Venice)
+...
+
+SCENE CONTEXT:
+Location and Setting: 暴雨在夜色中倾泻而下,城墙外的碎石路被雨水冲刷成一条条反光的沟壑...
+
+VISUAL CONTINUITY:
+This is the FIRST shot in this scene. Use the scene image as the primary visual reference 
+for environment, lighting, and atmosphere. Establish the visual foundation for subsequent shots.
+
+SHOT DESCRIPTION:
+全景镜头,城墙在雨中矗立,城门半掩,腐朽的木门在狂风中不断撞击石框,发出沉闷的回响。
+
+Technical Specifications:
+- Shot on 35mm film or high-end digital cinema camera
+- Cinematic color grading (film look, not digital/game look)
+...
+
+ABSOLUTELY FORBIDDEN:
+- NO 3D rendering artifacts
+- NO people, human figures, characters, or persons of any kind
+...
+```
+
+#### 示例2: 后续分镜(有人物)
+
+**输入**:
+- 场景: 暴雨中的城墙外,夜晚
+- 分镜: 中景,阿尔德里克站在城门内侧,盔甲破损,手握长剑
+- 角色: 阿尔德里克
+- 上一个分镜: 全景镜头,城墙在雨中矗立
+
+**生成的Prompt**:
+```
+CRITICAL STYLE REQUIREMENTS:
+- This MUST be a LIVE-ACTION PHOTOGRAPH, not 3D render, not CGI, not animation
+...
+
+SCENE CONTEXT:
+Location and Setting: 暴雨在夜色中倾泻而下,城墙外的碎石路被雨水冲刷成一条条反光的沟壑...
+
+VISUAL CONTINUITY (Critical for seamless flow):
+This shot CONTINUES from the previous shot. Maintain visual consistency:
+- Previous shot description: 全景镜头,城墙在雨中矗立,城门半掩,腐朽的木门在狂风中不断撞击石框,发出沉闷的回响。
+- Keep consistent lighting, color palette, and atmosphere
+- Ensure smooth visual transition from previous frame
+- Characters should maintain consistent appearance and positioning
+- Environment elements should show logical progression
+
+SHOT DESCRIPTION:
+中景,阿尔德里克站在城门内侧,盔甲破损严重,左肩的铁甲已经裂开,鲜血顺着雨水缓慢流淌。
+他一手扶着城墙稳住身体,另一手紧握长剑,剑尖垂地,随着呼吸轻微颤抖。
+
+CHARACTERS IN SHOT (Real actors):
+- 阿尔德里克: 中年战士,盔甲破损,沧桑面容,坚毅眼神
+
+Technical Specifications:
+...
+
+ABSOLUTELY FORBIDDEN:
+- NO 3D rendering artifacts
+- NO CGI character models
+...
+```
+
+### 关键点
+
+1. **视觉连续性**: 通过在提示词中明确引用上一帧的描述,引导AI保持一致的视觉风格
+2. **参考图优先级**: 上一帧关键帧 > 场景图,确保接力式的视觉传承
+3. **错误处理**: 如果场景没有场景图且没有上一帧,抛出异常要求先生成场景图
+4. **无人物场景**: 使用更严格的禁止列表,明确排除任何人物元素
+
+---
+
+## 7. 过渡视频Prompt生成
 
 **用途**: 生成两个分镜之间的过渡视频提示词
 

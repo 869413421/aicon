@@ -81,7 +81,8 @@ ABSOLUTELY FORBIDDEN:
         shot: MovieShot,
         scene: MovieScene,
         characters: List[MovieCharacter],
-        custom_prompt: Optional[str] = None
+        custom_prompt: Optional[str] = None,
+        previous_shot: Optional[MovieShot] = None
     ) -> str:
         """
         构建关键帧生成提示词
@@ -91,6 +92,7 @@ ABSOLUTELY FORBIDDEN:
             scene: 场景对象
             characters: 角色列表
             custom_prompt: 自定义提示词（如果提供则直接使用）
+            previous_shot: 上一个分镜对象（用于保持视觉连续性）
             
         Returns:
             完整的提示词
@@ -106,18 +108,21 @@ ABSOLUTELY FORBIDDEN:
         # 1. 场景上下文
         scene_context = KeyframePromptBuilder._build_scene_context(scene)
         
-        # 2. 分镜描述
+        # 2. 上一帧上下文（用于视觉连续性）
+        previous_shot_context = KeyframePromptBuilder._build_previous_shot_context(previous_shot)
+        
+        # 3. 分镜描述
         shot_description = shot.shot or "A cinematic shot"
         
-        # 3. 角色信息
+        # 4. 角色信息
         character_context = KeyframePromptBuilder._build_character_context(shot, characters)
         
-        # 4. 对白提示（如果有）
+        # 5. 对白提示（如果有）
         dialogue_hint = ""
         if shot.dialogue:
             dialogue_hint = f"\nDialogue context: {shot.dialogue[:100]}"
         
-        # 5. 选择合适的禁止元素列表
+        # 6. 选择合适的禁止元素列表
         # 如果分镜不包含人物，使用更严格的禁止列表
         has_characters = shot.characters and len(shot.characters) > 0
         forbidden_elements = (
@@ -132,11 +137,11 @@ ABSOLUTELY FORBIDDEN:
 SCENE CONTEXT:
 {scene_context}
 
+{previous_shot_context}
+
 SHOT DESCRIPTION:
 {shot_description}
 {dialogue_hint}
-
-{character_context}
 
 {KeyframePromptBuilder.TECHNICAL_SPECS}
 
@@ -180,6 +185,26 @@ Remember: This is a REAL PHOTOGRAPH from a LIVE-ACTION FILM, not a digital creat
             return f"CHARACTERS IN SHOT (Real actors):\n" + "\n".join(char_descriptions)
         
         return ""
+    
+    @staticmethod
+    def _build_previous_shot_context(previous_shot: Optional[MovieShot]) -> str:
+        """构建上一帧分镜上下文（用于视觉连续性）"""
+        if not previous_shot:
+            return """VISUAL CONTINUITY:
+This is the FIRST shot in this scene. Use the scene image as the primary visual reference for environment, lighting, and atmosphere. Establish the visual foundation for subsequent shots."""
+        
+        # 有上一帧，提供连续性指导
+        prev_description = previous_shot.shot or "Previous shot"
+        
+        context = f"""VISUAL CONTINUITY (Critical for seamless flow):
+This shot CONTINUES from the previous shot. Maintain visual consistency:
+- Previous shot description: {prev_description[:200]}
+- Keep consistent lighting, color palette, and atmosphere
+- Ensure smooth visual transition from previous frame
+- Characters should maintain consistent appearance and positioning
+- Environment elements should show logical progression"""
+        
+        return context
 
 
 __all__ = ["KeyframePromptBuilder"]

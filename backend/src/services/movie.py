@@ -45,19 +45,34 @@ class MovieService(BaseService):
         chars_result = await self.db_session.execute(stmt_chars)
         characters = list(chars_result.scalars().all())
         
-        # 3. 为每个shot生成专业提示词
+        # 3. 为每个shot生成专业提示词(包含上一帧信息)
         for scene in script.scenes:
-            for shot in scene.shots:
+            # 按顺序处理分镜,以便能找到上一个分镜
+            sorted_shots = sorted(scene.shots, key=lambda s: s.order_index)
+            
+            logger.info(f"场景 {scene.order_index} 共有 {len(sorted_shots)} 个分镜")
+            
+            for idx, shot in enumerate(sorted_shots):
+                # 查找同场景中的上一个分镜
+                previous_shot = sorted_shots[idx - 1] if idx > 0 else None
+                
+                if previous_shot:
+                    logger.info(f"分镜 {shot.order_index}: 找到上一个分镜 {previous_shot.order_index}")
+                else:
+                    logger.info(f"分镜 {shot.order_index}: 这是场景中的第一个分镜")
+                
                 # 生成专业提示词并附加到shot对象
                 try:
                     prompt = KeyframePromptBuilder.build_prompt(
                         shot=shot,
                         scene=scene,
                         characters=characters,
-                        custom_prompt=None
+                        custom_prompt=None,
+                        previous_shot=previous_shot  # 传入上一个分镜
                     )
                     # 动态添加属性（不保存到数据库，仅用于API响应）
                     shot.generated_prompt = prompt
+                    logger.info(f"分镜 {shot.order_index}: 提示词生成成功,长度={len(prompt)}")
                 except Exception as e:
                     logger.error(f"生成shot {shot.id} 提示词失败: {e}")
                     shot.generated_prompt = shot.shot  # 降级为原始描述

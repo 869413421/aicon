@@ -35,11 +35,23 @@ async def _generate_keyframe_worker(
     user_id: Any,
     api_key,
     model: Optional[str],
-    semaphore: asyncio.Semaphore
+    semaphore: asyncio.Semaphore,
+    previous_keyframe_url: Optional[str] = None,
+    previous_shot: Optional[MovieShot] = None
 ):
     """
     单个分镜关键帧生成的 Worker - 负责生成、下载、上传，不负责 Commit
     角色信息直接从shot.characters字段获取
+    
+    Args:
+        shot: 分镜对象
+        chars: 角色列表
+        user_id: 用户ID
+        api_key: API密钥对象
+        model: 图像模型
+        semaphore: 并发控制信号量
+        previous_keyframe_url: 上一个分镜的关键帧URL（用于视觉连续性）
+        previous_shot: 上一个分镜对象（用于提示词上下文）
     
     注意：新架构下，每个分镜只有一个关键帧（keyframe_url）
     """
@@ -47,7 +59,7 @@ async def _generate_keyframe_worker(
     
     async with semaphore:
         try:
-            # 1. 构建专业提示词（包含场景、分镜、角色信息）
+            # 1. 构建专业提示词（包含场景、分镜、角色信息、上一帧信息）
             from src.services.keyframe_prompt_builder import KeyframePromptBuilder
             
             # 获取场景信息（shot已经预加载了scene关系）
@@ -57,19 +69,25 @@ async def _generate_keyframe_worker(
                 shot=shot,
                 scene=scene,
                 characters=chars,
-                custom_prompt=None  # worker中不使用自定义提示词
+                custom_prompt=None,  # worker中不使用自定义提示词
+                previous_shot=previous_shot  # 传入上一帧信息
             )
             
-            # 1.5 收集参考图：场景图 + 角色图
+            # 1.5 收集参考图：根据是否有上一帧决定参考策略
             reference_images = []
             
-            # 首先添加场景图（如果存在）
-            if scene.scene_image_url:
-                reference_images.append(scene.scene_image_url)
-                logger.info(f'[批量生成] 添加场景参考图: {scene.scene_image_url}')
+            # 如果有上一帧的关键帧，优先使用它作为参考
+            if previous_keyframe_url:
+                reference_images.append(previous_keyframe_url)
+                logger.info(f'[批量生成] 使用上一帧关键帧作为参考: {previous_keyframe_url}')
             else:
-                # 抛出异常
-                raise ValueError(f"场景 {scene.id} 没有场景图")
+                # 第一个分镜：使用场景图作为参考
+                if scene.scene_image_url:
+                    reference_images.append(scene.scene_image_url)
+                    logger.info(f'[批量生成] 第一个分镜，使用场景图作为参考: {scene.scene_image_url}')
+                else:
+                    # 抛出异常
+                    raise ValueError(f"场景 {scene.id} 没有场景图，且没有上一帧关键帧")
             
             # 然后添加角色参考图
             if shot.characters:
@@ -227,9 +245,13 @@ class VisualIdentityService(BaseService):
     async def batch_generate_keyframes(self, script_id: str, api_key_id: str, model: Optional[str] = None) -> dict:
         """
         批量为剧本下的所有分镜生成关键帧
-        新架构：每个分镜只有一个关键帧（keyframe_url）
+        新架构：按场景分组，场景并发处理，场景内分镜顺序处理
+        每个场景使用独立的数据库会话，避免连接冲突
         """
-        # 1. 深度加载
+        from src.core.database import get_async_db
+        from sqlalchemy.orm import joinedload
+        
+        # 1. 深度加载剧本和场景（在主会话中）
         script = await self.db_session.get(MovieScript, script_id, options=[
             selectinload(MovieScript.scenes).selectinload(MovieScene.shots),
             joinedload(MovieScript.chapter).joinedload(Chapter.project)
@@ -239,7 +261,7 @@ class VisualIdentityService(BaseService):
         project_id = script.chapter.project_id
         user_id = script.chapter.project.owner_id
         
-        # 2. 预加载角色
+        # 2. 预加载角色（在主会话中）
         stmt_chars = select(MovieCharacter).where(MovieCharacter.project_id == project_id)
         chars = (await self.db_session.execute(stmt_chars)).scalars().all()
 
@@ -255,39 +277,125 @@ class VisualIdentityService(BaseService):
         api_key_service = APIKeyService(self.db_session)
         api_key = await api_key_service.get_api_key_by_id(api_key_id, str(user_id))
 
-        # 5. 筛选待处理任务 - 只生成缺少keyframe的分镜
-        tasks = []
-        semaphore = asyncio.Semaphore(20)
-        
+        # 5. 按场景分组待处理的分镜
+        scene_shot_groups = {}
         for scene in script.scenes:
-            for shot in scene.shots:
-                # 检查是否需要生成关键帧
-                if not shot.keyframe_url:
-                    tasks.append(
-                        _generate_keyframe_worker(shot, chars, user_id, api_key, model, semaphore)
-                    )
+            pending_shots = [shot for shot in scene.shots if not shot.keyframe_url]
+            if pending_shots:
+                scene_shot_groups[scene.id] = {
+                    'scene': scene,
+                    'shots': sorted(pending_shots, key=lambda s: s.order_index),
+                    'scene_order': scene.order_index
+                }
         
         # 6. 无任务则返回
-        if not tasks:
+        if not scene_shot_groups:
             return {"total": 0, "success": 0, "failed": 0, "message": "所有分镜已有关键帧"}
 
-        # 6. 执行并发
-        results = await asyncio.gather(*tasks)
+        # 7. 定义场景处理函数（每个场景使用独立的数据库会话）
+        worker_semaphore = asyncio.Semaphore(20)  # API调用并发限制
         
-        success_count = sum(1 for r in results if r)
-        failed_count = len(results) - success_count
+        async def process_scene_with_session(scene_id: str, scene_data: dict):
+            """处理单个场景，使用独立的数据库会话"""
+            async with get_async_db() as scene_session:
+                try:
+                    scene_order = scene_data['scene_order']
+                    shot_ids = [shot.id for shot in scene_data['shots']]
+                    
+                    logger.info(f"开始处理场景 {scene_order}，共 {len(shot_ids)} 个分镜")
+                    
+                    # 在场景会话中顺序处理分镜
+                    previous_keyframe_url = None
+                    previous_shot = None
+                    success_count = 0
+                    failed_count = 0
+                    
+                    for shot_id in shot_ids:
+                        # 在当前会话中重新获取分镜（避免DetachedInstanceError）
+                        shot_in_session = await scene_session.get(MovieShot, shot_id, options=[
+                            joinedload(MovieShot.scene)
+                        ])
+                        
+                        if not shot_in_session:
+                            logger.error(f"场景 {scene_order} 中找不到分镜 {shot_id}")
+                            failed_count += 1
+                            continue
+                        
+                        # 生成关键帧
+                        try:
+                            success = await _generate_keyframe_worker(
+                                shot=shot_in_session,
+                                chars=chars,
+                                user_id=user_id,
+                                api_key=api_key,
+                                model=model,
+                                semaphore=worker_semaphore,
+                                previous_keyframe_url=previous_keyframe_url,
+                                previous_shot=previous_shot
+                            )
+                            
+                            if success:
+                                await scene_session.commit()  # 立即提交
+                                previous_keyframe_url = shot_in_session.keyframe_url
+                                previous_shot = shot_in_session
+                                success_count += 1
+                                logger.info(f"场景 {scene_order} 分镜 {shot_in_session.order_index} 生成成功")
+                            else:
+                                failed_count += 1
+                                logger.error(f"场景 {scene_order} 分镜 {shot_in_session.order_index} 生成失败")
+                                # 继续处理下一个分镜，但不更新previous引用
+                                
+                        except Exception as e:
+                            failed_count += 1
+                            logger.error(f"场景 {scene_order} 分镜 {shot_in_session.order_index} 生成异常: {e}")
+                            # 继续处理下一个分镜
+                    
+                    logger.info(f"场景 {scene_order} 处理完成: 成功 {success_count}, 失败 {failed_count}")
+                    return {'success': success_count, 'failed': failed_count}
+                    
+                except Exception as e:
+                    logger.error(f"处理场景 {scene_id} 时出错: {e}")
+                    await scene_session.rollback()
+                    return {'success': 0, 'failed': len(scene_data['shots'])}
         
-        # 7. 提交
-        await self.db_session.commit()
+        # 8. 并发处理场景（限制并发数为3）
+        scene_semaphore = asyncio.Semaphore(3)
         
-        logger.info(f"批量关键帧生成完成: 总计 {len(tasks)}, 成功 {success_count}, 失败 {failed_count}")
+        async def process_scene_limited(scene_id: str, scene_data: dict):
+            async with scene_semaphore:
+                return await process_scene_with_session(scene_id, scene_data)
+        
+        scene_tasks = [
+            process_scene_limited(sid, sdata)
+            for sid, sdata in scene_shot_groups.items()
+        ]
+        
+        # 9. 执行并收集结果
+        results = await asyncio.gather(*scene_tasks, return_exceptions=True)
+        
+        # 10. 统计结果
+        total_success = 0
+        total_failed = 0
+        
+        for result in results:
+            if isinstance(result, dict):
+                total_success += result.get('success', 0)
+                total_failed += result.get('failed', 0)
+            else:
+                # 异常情况
+                logger.error(f"场景处理返回异常: {result}")
+        
+        total_tasks = sum(len(sdata['shots']) for sdata in scene_shot_groups.values())
+        
+        logger.info(f"批量关键帧生成完成: 总计 {total_tasks}, 成功 {total_success}, 失败 {total_failed}")
         
         return {
-            "total": len(tasks),
-            "success": success_count,
-            "failed": failed_count,
-            "message": f"批量生成完成: 成功 {success_count}, 失败 {failed_count}"
+            "total": total_tasks,
+            "success": total_success,
+            "failed": total_failed,
+            "message": f"批量生成完成: 成功 {total_success}, 失败 {total_failed}"
         }
+
 
     async def generate_single_keyframe(self, shot_id: str, api_key_id: str, model: str = None, prompt: str = None):
         """
@@ -330,21 +438,43 @@ class VisualIdentityService(BaseService):
         # 获取user_id
         user_id = str(shot.scene.script.chapter.project.owner_id)
         
-        # 2. 获取 API Key  
+        # 2. 查找上一个分镜（同场景中）
+        previous_shot = None
+        previous_keyframe_url = None
+        
+        stmt_prev = (
+            select(MovieShot)
+            .where(
+                MovieShot.scene_id == shot.scene_id,
+                MovieShot.order_index < shot.order_index
+            )
+            .order_by(MovieShot.order_index.desc())
+            .limit(1)
+        )
+        result_prev = await self.db_session.execute(stmt_prev)
+        previous_shot = result_prev.scalar_one_or_none()
+        
+        if previous_shot and previous_shot.keyframe_url:
+            previous_keyframe_url = previous_shot.keyframe_url
+            logger.info(f"找到上一个分镜 {previous_shot.order_index}，将使用其关键帧作为参考")
+        else:
+            logger.info("这是场景中的第一个分镜，将使用场景图作为参考")
+        
+        # 3. 获取 API Key  
         api_key_service = APIKeyService(self.db_session)
         api_key = await api_key_service.get_api_key_by_id(api_key_id)
         
         if not api_key:
             raise ValueError(f"API Key 不存在: {api_key_id}")
         
-        # 3. 创建提供商
+        # 4. 创建提供商
         provider = ProviderFactory.create(
             provider=api_key.provider,
             api_key=api_key.get_api_key(),
             base_url=api_key.base_url
         )
         
-        # 4. 生成图像提示词
+        # 5. 生成图像提示词
         # 单个生成时：前端应该先调用构建器生成专业提示词，用户调整后传递过来
         # 如果前端传递了prompt，直接使用（用户已调整）
         # 如果没有传递，使用构建器生成（兜底逻辑）
@@ -368,20 +498,26 @@ class VisualIdentityService(BaseService):
                 shot=shot,
                 scene=shot.scene,
                 characters=list(chars),
-                custom_prompt=None
+                custom_prompt=None,
+                previous_shot=previous_shot  # 传入上一帧信息
             )
             logger.info(f"使用构建器生成的专业提示词（长度: {len(final_prompt)}字符）")
         
-        # 4.5 获取参考图：场景图 + 角色图
+        # 5.5 获取参考图：根据是否有上一帧决定参考策略
         reference_images = []
         
-        # 首先添加场景图（如果存在）
-        if shot.scene.scene_image_url:
-            reference_images.append(shot.scene.scene_image_url)
-            logger.info(f'添加场景参考图: {shot.scene.scene_image_url}')
+        # 如果有上一帧的关键帧，优先使用它作为参考
+        if previous_keyframe_url:
+            reference_images.append(previous_keyframe_url)
+            logger.info(f'使用上一帧关键帧作为参考: {previous_keyframe_url}')
         else:
-            # 不允许生成
-            raise ValueError(f'场景 {shot.scene.id} 没有场景图，建议先生成场景图以保持场景一致性')
+            # 第一个分镜：使用场景图作为参考
+            if shot.scene.scene_image_url:
+                reference_images.append(shot.scene.scene_image_url)
+                logger.info(f'第一个分镜，使用场景图作为参考: {shot.scene.scene_image_url}')
+            else:
+                # 不允许生成
+                raise ValueError(f'场景 {shot.scene.id} 没有场景图，且没有上一帧关键帧，建议先生成场景图以保持场景一致性')
         
         # 然后添加角色参考图
         if shot.characters:
