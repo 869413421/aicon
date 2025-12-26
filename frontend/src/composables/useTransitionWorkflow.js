@@ -33,7 +33,6 @@ export function useTransitionWorkflow() {
             })
 
             if (response.task_id) {
-                ElMessage.success('过渡创建任务已提交')
                 const { startPolling } = useTaskPoller()
                 startPolling(response.task_id, async (result) => {
                     ElMessage.success(`过渡创建完成: ${result.success} 个过渡`)
@@ -59,7 +58,6 @@ export function useTransitionWorkflow() {
             })
 
             if (response.task_id) {
-                ElMessage.success('过渡视频生成任务已提交')
                 const { startPolling } = useTaskPoller()
                 startPolling(response.task_id, async (result) => {
                     ElMessage.success(`视频生成完成: 成功 ${result.success}, 失败 ${result.failed}`)
@@ -98,7 +96,6 @@ export function useTransitionWorkflow() {
             })
 
             if (response.task_id) {
-                ElMessage.success('过渡视频生成任务已提交')
                 const { startPolling } = useTaskPoller()
                 startPolling(response.task_id, async (result) => {
                     ElMessage.success('视频生成完成')

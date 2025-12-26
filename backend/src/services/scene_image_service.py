@@ -47,8 +47,19 @@ async def _generate_scene_image_worker(
                 final_prompt = custom_prompt
                 logger.info(f"使用自定义提示词生成场景图 (scene_id={scene.id})")
             else:
-                final_prompt = MoviePromptTemplates.get_scene_image_prompt(scene.scene)
-                logger.info(f"使用模板生成场景图提示词 (scene_id={scene.id})")
+                # 优先使用分镜描述
+                if hasattr(scene, 'shots') and scene.shots and len(scene.shots) > 0:
+                    # 组合所有分镜描述
+                    shots_desc = "\n\n".join([
+                        f"Shot {shot.order_index}: {shot.shot}"
+                        for shot in sorted(scene.shots, key=lambda x: x.order_index)
+                    ])
+                    final_prompt = MoviePromptTemplates.get_scene_image_prompt_from_shots(shots_desc)
+                    logger.info(f"使用{len(scene.shots)}个分镜描述生成场景图 (scene_id={scene.id})")
+                else:
+                    # Fallback: 使用原始场景描述
+                    final_prompt = MoviePromptTemplates.get_scene_image_prompt(scene.scene)
+                    logger.info(f"场景无分镜,使用原始描述生成场景图 (scene_id={scene.id})")
             
             # 保存提示词
             scene.scene_image_prompt = final_prompt
@@ -119,6 +130,7 @@ class SceneImageService(BaseService):
             select(MovieScene)
             .where(MovieScene.id == scene_id)
             .options(
+                selectinload(MovieScene.shots),  # 加载分镜用于生成场景图
                 joinedload(MovieScene.script)
                 .joinedload(MovieScript.chapter)
                 .joinedload(Chapter.project)
@@ -171,7 +183,7 @@ class SceneImageService(BaseService):
         """
         # 1. 深度加载
         script = await self.db_session.get(MovieScript, script_id, options=[
-            selectinload(MovieScript.scenes),
+            selectinload(MovieScript.scenes).selectinload(MovieScene.shots),  # 加载分镜用于生成场景图
             joinedload(MovieScript.chapter).joinedload(Chapter.project)
         ])
         if not script:

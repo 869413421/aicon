@@ -168,6 +168,11 @@ onMounted(() => {
     fetchChapters()
   }
 })
+
+// Expose methods to parent component
+defineExpose({
+  fetchChapters
+})
 </script>
 
 <style scoped>

@@ -342,7 +342,7 @@ Generate a detailed, cinematic establishing shot that captures the essence and a
     @classmethod
     def get_scene_image_prompt(cls, scene_description: str) -> str:
         """
-        获取场景图生成Prompt
+        获取场景图生成Prompt (基于原始场景描述)
         
         Args:
             scene_description: 场景描述
@@ -351,6 +351,69 @@ Generate a detailed, cinematic establishing shot that captures the essence and a
             str: 格式化后的prompt
         """
         return cls.SCENE_IMAGE_GENERATION.format(scene_description=scene_description)
+    
+    # 基于分镜描述的场景图生成Prompt
+    SCENE_IMAGE_FROM_SHOTS = """Create a cinematic establishing shot based on the visual elements described in the following shots.
+This is a LIVE-ACTION PHOTOGRAPH for a film production, not CGI or 3D render.
+
+## Shots Description
+{shots_description}
+
+## Your Task
+Analyze the shots above and extract the COMMON ENVIRONMENTAL ELEMENTS that appear across these shots.
+Focus on creating an establishing shot that shows the LOCATION and ATMOSPHERE where these shots take place.
+
+### Extract These Elements:
+1. **Location Type**: Indoor/outdoor, specific place (office, street, castle, etc.)
+2. **Architectural Details**: Buildings, structures, room layout, furniture placement
+3. **Lighting Conditions**: Time of day, light sources, shadows, atmosphere
+4. **Weather/Atmosphere**: Clear, rainy, foggy, stormy, etc.
+5. **Color Palette**: Dominant colors, tones, mood
+6. **Spatial Layout**: How the space is organized, key landmarks
+
+### Generate Establishing Shot Prompt:
+
+Use Veo 3.1 Formula:
+- **[Cinematography]**: Wide establishing shot, appropriate angle to show the space
+- **[Environment Subject]**: The location itself (NO people, NO characters)
+- **[Atmospheric Context]**: Time of day, weather, lighting from the shots
+- **[Style & Ambiance]**: Mood and aesthetic matching the shots
+
+## Critical Requirements
+
+**UNINHABITED ENVIRONMENT - No Human Presence:**
+- Extract ONLY the environment from the shots, remove ALL human elements
+- This is a pristine, empty, deserted location
+- NO people, characters, humans, persons, faces, bodies
+- NO human silhouettes, shadows, or reflections
+- The environment exists in complete solitude
+
+**Match the Shots' Visual Style:**
+- Use the same lighting conditions described in the shots
+- Match the time of day and weather
+- Maintain the same color palette and mood
+- Ensure the establishing shot feels like it belongs to the same scene
+
+**Technical Specifications:**
+- Shot on professional cinema camera (ARRI Alexa, RED, Sony Venice)
+- Cinematic color grading with film look
+- High dynamic range with rich environmental detail
+- Professional landscape or architectural photography standards
+
+Generate a detailed, cinematic establishing shot that captures the environment where these shots take place."""
+
+    @classmethod
+    def get_scene_image_prompt_from_shots(cls, shots_description: str) -> str:
+        """
+        基于分镜描述生成场景图提示词
+        
+        Args:
+            shots_description: 场景的所有分镜描述(组合)
+            
+        Returns:
+            str: 格式化后的prompt
+        """
+        return cls.SCENE_IMAGE_FROM_SHOTS.format(shots_description=shots_description)
 
     # 过渡视频提示词生成Prompt
     TRANSITION_VIDEO = """你是一个国际获奖级的电影视频提示词生成专家，精通 Veo 3.1 视频生成最佳实践。

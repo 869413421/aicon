@@ -130,9 +130,17 @@ export function useMovieWorkflow() {
         }
     }
 
-    // Watch for chapter changes
-    watch(selectedChapterId, (newId) => {
-        if (newId) {
+    // Watch for chapter changes and update URL
+    watch(selectedChapterId, (newId, oldId) => {
+        if (newId && newId !== oldId && projectId.value) {
+            // Update URL to reflect current chapter selection
+            router.replace({
+                name: 'MovieStudio',
+                params: {
+                    projectId: projectId.value,
+                    chapterId: newId
+                }
+            })
             loadData()
         }
     })
