@@ -11,6 +11,7 @@ export function useShotWorkflow(script) {
     const extracting = ref(false)
     const generatingKeyframes = ref(new Set()) // 使用Set跟踪多个并发生成
     const extractingScenes = ref(new Set()) // 跟踪正在提取的场景
+    const batchGenerating = ref(false) // 批量生成loading状态
 
     const allShots = computed(() => {
         if (!script.value?.scenes) return []
@@ -58,6 +59,7 @@ export function useShotWorkflow(script) {
     }
 
     const generateKeyframes = async (scriptId, apiKeyId, model, loadScript) => {
+        batchGenerating.value = true // 设置loading状态
         try {
             const response = await movieService.generateKeyframes(scriptId, {
                 api_key_id: apiKeyId,
@@ -68,6 +70,7 @@ export function useShotWorkflow(script) {
                 ElMessage.success('关键帧生成任务已提交')
                 const { startPolling } = useTaskPoller()
                 startPolling(response.task_id, async (result) => {
+                    batchGenerating.value = false // 清除loading状态
                     if (result.failed > 0) {
                         ElMessage.warning(`关键帧生成部分完成: 成功 ${result.success}, 失败 ${result.failed}`)
                     } else {
@@ -78,10 +81,14 @@ export function useShotWorkflow(script) {
                         await loadScript(script.value.chapter_id, true) // skipStepUpdate=true
                     }
                 }, (error) => {
+                    batchGenerating.value = false // 清除loading状态
                     ElMessage.error(`生成失败: ${error.message}`)
                 })
+            } else {
+                batchGenerating.value = false
             }
         } catch (error) {
+            batchGenerating.value = false // 清除loading状态
             ElMessage.error('关键帧生成失败')
         }
     }
@@ -158,6 +165,7 @@ export function useShotWorkflow(script) {
         extracting,
         generatingKeyframes,
         extractingScenes,
+        batchGenerating,
         extractShots,
         extractSingleSceneShots,
         generateKeyframes,

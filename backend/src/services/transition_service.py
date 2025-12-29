@@ -533,6 +533,7 @@ class TransitionService(BaseService):
     ) -> dict:
         """
         批量生成过渡视频
+        使用独立的数据库会话避免并发冲突
         
         Args:
             script_id: 剧本ID
@@ -544,10 +545,11 @@ class TransitionService(BaseService):
         """
         from src.models.chapter import Chapter
         from sqlalchemy.orm import joinedload
+        from src.core.database import get_async_db
         
         logger.info(f"开始批量生成过渡视频: script_id={script_id}")
         
-        # 1. 加载script和user信息
+        # 1. 加载script和user信息（在主会话中）
         script = await self.db_session.get(MovieScript, script_id, options=[
             selectinload(MovieScript.scenes).selectinload(MovieScene.shots),
             joinedload(MovieScript.chapter).joinedload(Chapter.project)
@@ -557,11 +559,11 @@ class TransitionService(BaseService):
         
         user_id = script.chapter.project.owner_id
         
-        # 2. 加载API Key
+        # 2. 加载API Key（在主会话中）
         api_key_service = APIKeyService(self.db_session)
         api_key = await api_key_service.get_api_key_by_id(api_key_id, str(user_id))
         
-        # 3. 查询所有pending状态且有提示词的过渡
+        # 3. 查询所有pending状态且有提示词的过渡（在主会话中）
         stmt = select(MovieShotTransition).where(
             MovieShotTransition.script_id == script_id,
             MovieShotTransition.status == "pending",
@@ -576,31 +578,63 @@ class TransitionService(BaseService):
         
         logger.info(f"找到 {len(transitions)} 个待生成的过渡视频")
         
-        # 4. 创建VectorEngine provider
+        # 4. 提取过渡数据（避免在协程中访问ORM对象）
+        transition_data_list = []
+        for t in transitions:
+            transition_data_list.append({
+                'id': t.id,
+                'from_shot_id': t.from_shot_id,
+                'to_shot_id': t.to_shot_id,
+                'video_prompt': t.video_prompt,
+                'script_id': t.script_id
+            })
+        
+        # 5. 创建VectorEngine provider（可以共享）
         from src.services.provider.vector_engine_provider import VectorEngineProvider
         provider = VectorEngineProvider(
             api_key=api_key.get_api_key(),
             base_url=api_key.base_url
         )
         
-        # 5. 并发生成
+        # 6. 定义worker函数（使用独立会话）
         max_concurrent = 5
         semaphore = asyncio.Semaphore(max_concurrent)
         
-        async def _generate_worker(transition):
+        async def _generate_worker_with_session(transition_data: dict):
+            """为单个过渡生成视频，使用独立的数据库会话"""
             async with semaphore:
-                return await self._generate_single_transition_video(
-                    transition, api_key_id, user_id, video_model, provider
-                )
+                async with get_async_db() as worker_session:
+                    try:
+                        # 在worker会话中重新加载过渡对象
+                        transition = await worker_session.get(
+                            MovieShotTransition, 
+                            transition_data['id']
+                        )
+                        if not transition:
+                            logger.error(f"过渡不存在: {transition_data['id']}")
+                            return {"success": False, "error": "过渡不存在"}
+                        
+                        # 生成视频（使用worker会话的service实例）
+                        worker_service = TransitionService(worker_session)
+                        result = await worker_service._generate_single_transition_video(
+                            transition, api_key_id, str(user_id), video_model, provider
+                        )
+                        
+                        # 提交worker会话
+                        await worker_session.commit()
+                        
+                        return result
+                        
+                    except Exception as e:
+                        await worker_session.rollback()
+                        logger.error(f"Worker生成过渡视频失败 [{transition_data['id']}]: {e}", exc_info=True)
+                        return {"success": False, "error": str(e)}
         
-        # 6. 执行并发任务
-        tasks = [_generate_worker(t) for t in transitions]
+        # 7. 执行并发任务
+        tasks = [_generate_worker_with_session(td) for td in transition_data_list]
         results = await asyncio.gather(*tasks)
         
-        # 7. 提交数据库
-        await self.db_session.commit()
-        
-        # 8. 统计结果
+        # 8. 统计结果（不需要在这里commit，每个worker已经独立commit了）
         success_count = sum(1 for r in results if r["success"])
         failed_count = len(results) - success_count
         
@@ -610,6 +644,7 @@ class TransitionService(BaseService):
             "success": success_count,
             "failed": failed_count
         }
+
 
     async def sync_transition_video_status(self, api_key_id: str = None) -> dict:
         """

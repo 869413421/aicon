@@ -5,7 +5,8 @@
       <div class="actions">
         <el-button 
           type="primary"
-          :disabled="!canGenerate || generatingIds.size > 0"
+          :loading="batchGenerating"
+          :disabled="!canGenerate || batchGenerating || generatingIds.size > 0"
           @click="handleBatchGenerateClick"
         >
           批量生成关键帧
@@ -257,6 +258,10 @@ const props = defineProps({
   generatingIds: {
     type: Set,
     default: () => new Set()
+  },
+  batchGenerating: {
+    type: Boolean,
+    default: false
   }
 })
 

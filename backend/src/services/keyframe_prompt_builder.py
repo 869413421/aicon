@@ -153,6 +153,8 @@ ABSOLUTELY FORBIDDEN:
         full_prompt = f"""
 {KeyframePromptBuilder.CORE_STYLE}
 
+{previous_shot_context}
+
 SHOT DESCRIPTION:
 {shot_description}
 {dialogue_hint}

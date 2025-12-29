@@ -91,6 +91,7 @@
             :can-generate="canGenerateKeyframes"
             :api-keys="apiKeys"
             :generating-ids="shotWorkflow.generatingKeyframes.value"
+            :batch-generating="shotWorkflow.batchGenerating.value"
             @batch-generate="handleBatchGenerateKeyframes"
             @generate-keyframe="handleGenerateSingleKeyframe"
             @refresh="handleRefreshKeyframes"

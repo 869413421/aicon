@@ -19,111 +19,124 @@ logger = get_logger(__name__)
 
 
 async def _generate_scene_image_worker(
-    scene: MovieScene,
-    user_id: Any,
+    scene_data: dict,  # 改为传递场景数据字典
+    user_id: str,
     api_key,
-    model: Optional[str],
-    semaphore: asyncio.Semaphore,
-    custom_prompt: Optional[str] = None
-):
+    model: str,
+    semaphore: asyncio.Semaphore
+) -> bool:
     """
-    单个场景图生成的 Worker - 负责生成、下载、上传，不负责 Commit
+    Worker协程 - 为单个场景生成场景图
+    使用独立的数据库会话避免并发冲突
     
     Args:
-        scene: 场景对象
+        scene_data: 场景数据字典 {id, order_index, scene, characters, shots}
         user_id: 用户ID
-        api_key: API Key对象
-        model: 图像模型
+        api_key: API密钥对象
+        model: 模型名称
         semaphore: 并发控制信号量
-        custom_prompt: 自定义提示词（可选）
     
     Returns:
-        bool: 是否成功
+        是否成功
     """
+    from src.core.database import get_async_db
+    from src.services.generation_history_service import GenerationHistoryService
+    from src.models.movie import GenerationType, MediaType
+    
     async with semaphore:
-        try:
-            # 1. 构建场景图提示词
-            if custom_prompt:
-                final_prompt = custom_prompt
-                logger.info(f"使用自定义提示词生成场景图 (scene_id={scene.id})")
-            else:
-                # 优先使用分镜描述
-                if hasattr(scene, 'shots') and scene.shots and len(scene.shots) > 0:
-                    # 组合所有分镜描述
-                    shots_desc = "\n\n".join([
-                        f"Shot {shot.order_index}: {shot.shot}"
-                        for shot in sorted(scene.shots, key=lambda x: x.order_index)
-                    ])
-                    final_prompt = MoviePromptTemplates.get_scene_image_prompt_from_shots(shots_desc)
-                    logger.info(f"使用{len(scene.shots)}个分镜描述生成场景图 (scene_id={scene.id})")
-                else:
-                    # Fallback: 使用原始场景描述
-                    final_prompt = MoviePromptTemplates.get_scene_image_prompt(scene.scene)
-                    logger.info(f"场景无分镜,使用原始描述生成场景图 (scene_id={scene.id})")
-            
-            # 保存提示词
-            scene.scene_image_prompt = final_prompt
-            
-            # 2. Provider 调用
-            img_provider = ProviderFactory.create(
-                provider=api_key.provider,
-                api_key=api_key.get_api_key(),
-                base_url=api_key.base_url
-            )
-
-            logger.info(f"生成场景 {scene.id} 的场景图, Prompt: {final_prompt[:100]}...")
-            
-            # 准备生成参数
-            gen_params = {
-                "prompt": final_prompt,
-                "model": model
-            }
-            
-            result = await retry_with_backoff(
-                lambda: img_provider.generate_image(**gen_params)
-            )
-            
-            # 3. 提取并上传图片
-            from src.utils.image_utils import extract_and_upload_image
-            
-            object_key = await extract_and_upload_image(
-                result=result,
-                user_id=str(user_id),
-                metadata={"scene_id": str(scene.id), "type": "scene_image"}
-            )
-
-            # 4. 更新对象属性 (不 Commit)
-            scene.scene_image_url = object_key
-            
-            # 5. 创建生成历史记录
-            # 注意：scene对象已经绑定到session，我们需要获取它的session
-            from src.services.generation_history_service import GenerationHistoryService
-            from src.models.movie import GenerationType, MediaType
-            from sqlalchemy.orm import object_session
-            
-            db_session = object_session(scene)
-            history_service = GenerationHistoryService(db_session)
-            await history_service.create_history(
-                resource_type=GenerationType.SCENE_IMAGE,
-                resource_id=str(scene.id),
-                result_url=object_key,
-                prompt=final_prompt,
-                media_type=MediaType.IMAGE,
-                model=model,
-                api_key_id=str(api_key.id) if api_key else None
-            )
+        # 为每个worker创建独立的数据库会话
+        async with get_async_db() as db_session:
+            try:
+                # 重新加载场景对象（使用新会话）
+                scene = await db_session.get(MovieScene, scene_data['id'])
+                if not scene:
+                    logger.error(f"场景不存在: {scene_data['id']}")
+                    return False
                 
-            logger.info(f"场景图生成并存储完成: scene_id={scene.id}, key={object_key}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Worker 生成场景图失败 [scene_id={scene.id}]: {e}")
-            return False
+                # 使用分镜描述生成场景图
+                shots_description = scene_data['shots']
+                logger.info(f"使用{len(shots_description)}个分镜描述生成场景图 (scene_id={scene.id})")
+                
+                # 生成场景图prompt
+                if shots_description:
+                    shots_desc = "\n\n".join([
+                        f"Shot {i+1}: {shot}"
+                        for i, shot in enumerate(shots_description)
+                    ])
+                    prompt = MoviePromptTemplates.get_scene_image_prompt_from_shots(shots_desc)
+                else:
+                    prompt = MoviePromptTemplates.get_scene_image_prompt(scene_data['scene'])
+                
+                
+                # 调用图片生成
+                from src.services.provider.factory import ProviderFactory
+                provider = ProviderFactory.create(
+                    provider=api_key.provider,
+                    api_key=api_key.get_api_key(),
+                    base_url=api_key.base_url
+                )
+                
+                from src.services.image import retry_with_backoff
+                result = await retry_with_backoff(
+                    lambda: provider.generate_image(prompt=prompt, model=model)
+                )
+                
+                # 上传图片
+                from src.utils.image_utils import extract_and_upload_image
+                image_url = await extract_and_upload_image(
+                    result=result,
+                    user_id=str(user_id),
+                    metadata={"scene_id": str(scene.id), "type": "scene_image"}
+                )
+                
+                # 更新场景
+                scene.scene_image_url = image_url
+                scene.scene_image_prompt = prompt
+                await db_session.flush()
+                
+                # 记录生成历史（使用当前会话）
+                history_service = GenerationHistoryService(db_session)
+                await history_service.create_history(
+                    resource_type=GenerationType.SCENE_IMAGE,
+                    resource_id=str(scene.id),
+                    prompt=prompt,
+                    result_url=image_url,
+                    media_type=MediaType.IMAGE,
+                    model=model,
+                    api_key_id=str(api_key.id)
+                )
+                
+                # 提交当前会话
+                await db_session.commit()
+                
+                logger.info(f"✅ 场景图生成成功: scene_id={scene.id}, url={image_url}")
+                return True
+                
+            except Exception as e:
+                await db_session.rollback()
+                logger.error(f"Worker 生成场景图失败 [scene_id={scene_data['id']}]: {e}", exc_info=True)
+                return False
 
 
 class SceneImageService(BaseService):
     """场景图生成服务"""
+
     
+    @staticmethod
+    def _build_scene_image_prompt(shots_data: list[dict]) -> str:
+        """
+        根据分镜数据构建场景图提示词
+        """
+        if not shots_data:
+            return MoviePromptTemplates.get_scene_image_prompt("一个空旷的场景") # Fallback for empty shots
+        
+        # 组合所有分镜描述
+        shots_desc = "\n\n".join([
+            f"Shot {shot['order_index']}: {shot['shot']}"
+            for shot in sorted(shots_data, key=lambda x: x['order_index'])
+        ])
+        return MoviePromptTemplates.get_scene_image_prompt_from_shots(shots_desc)
+
     async def generate_scene_image(
         self, 
         scene_id: str, 
@@ -170,14 +183,24 @@ class SceneImageService(BaseService):
         if not api_key:
             raise ValueError(f"API Key 不存在: {api_key_id}")
         
-        # 3. 生成场景图
+        # 3. 准备场景数据
+        scene_data = {
+            'id': scene.id,
+            'order_index': scene.order_index,
+            'scene': scene.scene,
+            'characters': scene.characters,
+            'shots': [shot.shot for shot in scene.shots if shot.shot]
+        }
+        
+        # 4. 生成场景图（使用独立会话的worker）
         semaphore = asyncio.Semaphore(1)
         success = await _generate_scene_image_worker(
-            scene, user_id, api_key, model, semaphore, prompt
+            scene_data, user_id, api_key, model, semaphore
         )
         
         if success:
-            await self.db_session.commit()
+            # 重新加载场景以获取更新后的URL
+            await self.db_session.refresh(scene)
             return scene.scene_image_url
         else:
             raise Exception("生成场景图失败")
@@ -220,8 +243,16 @@ class SceneImageService(BaseService):
         for scene in script.scenes:
             # 检查是否需要生成场景图
             if not scene.scene_image_url:
+                # 提取场景数据（避免在协程中访问ORM对象）
+                scene_data = {
+                    'id': scene.id,
+                    'order_index': scene.order_index,
+                    'scene': scene.scene,
+                    'characters': scene.characters,
+                    'shots': [shot.shot for shot in scene.shots if shot.shot]
+                }
                 tasks.append(
-                    _generate_scene_image_worker(scene, user_id, api_key, model, semaphore)
+                    _generate_scene_image_worker(scene_data, user_id, api_key, model, semaphore)
                 )
         
         # 4. 无任务则返回
@@ -234,8 +265,7 @@ class SceneImageService(BaseService):
         success_count = sum(1 for r in results if r)
         failed_count = len(results) - success_count
         
-        # 6. 提交
-        await self.db_session.commit()
+        # 6. 不需要在这里commit，每个worker已经独立commit了
         
         logger.info(f"批量场景图生成完成: 总计 {len(tasks)}, 成功 {success_count}, 失败 {failed_count}")
         

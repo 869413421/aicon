@@ -36,9 +36,10 @@ async def _generate_keyframe_worker(
     api_key,
     model: Optional[str],
     semaphore: asyncio.Semaphore,
+    db_session,  # 新增：传入数据库会话
     previous_keyframe_url: Optional[str] = None,
     previous_shot: Optional[MovieShot] = None,
-    prompt: Optional[str] = None  # 新增：用于保存到历史记录
+    prompt: Optional[str] = None
 ):
     """
     单个分镜关键帧生成的 Worker - 负责生成、下载、上传，不负责 Commit
@@ -138,11 +139,10 @@ async def _generate_keyframe_worker(
             shot.keyframe_url = object_key
             
             # 5. 创建生成历史记录
+            # 使用传入的db_session而不是object_session
             from src.services.generation_history_service import GenerationHistoryService
             from src.models.movie import GenerationType, MediaType
-            from sqlalchemy.orm import object_session
             
-            db_session = object_session(shot)
             history_service = GenerationHistoryService(db_session)
             await history_service.create_history(
                 resource_type=GenerationType.SHOT_KEYFRAME,
@@ -348,6 +348,7 @@ class VisualIdentityService(BaseService):
                                 api_key=api_key,
                                 model=model,
                                 semaphore=worker_semaphore,
+                                db_session=scene_session,  # 传入场景会话
                                 previous_keyframe_url=previous_keyframe_url,
                                 previous_shot=previous_shot
                             )
