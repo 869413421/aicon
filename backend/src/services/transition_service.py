@@ -712,6 +712,22 @@ class TransitionService(BaseService):
                         transition.video_url = storage_result["object_key"]
                         transition.status = "completed"
                         transition.error_message = None  # 清除之前的错误信息
+                        
+                        # 创建生成历史记录
+                        from src.services.generation_history_service import GenerationHistoryService
+                        from src.models.movie import GenerationType, MediaType
+                        
+                        history_service = GenerationHistoryService(self.db_session)
+                        await history_service.create_history(
+                            resource_type=GenerationType.TRANSITION_VIDEO,
+                            resource_id=str(transition.id),
+                            result_url=storage_result["object_key"],
+                            prompt=transition.video_prompt or "",
+                            media_type=MediaType.VIDEO,
+                            model=None,
+                            api_key_id=str(transition.api_key_id) if transition.api_key_id else None
+                        )
+                        
                         completed_count += 1
                         logger.info(f"过渡视频完成: {transition.id}, 已保存到MinIO")
                     else:

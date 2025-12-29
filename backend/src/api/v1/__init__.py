@@ -42,6 +42,7 @@ from .movie_characters import router as movie_characters_router
 from .movie_scenes import router as movie_scenes_router
 from .movie_shots import router as movie_shots_router
 from .movie_transitions import router as movie_transitions_router
+from .generation_history import router as generation_history_router
 
 # 注册路由
 api_router.include_router(auth_router, prefix="/auth", tags=["认证"])
@@ -66,5 +67,6 @@ api_router.include_router(movie_characters_router, prefix="/movie", tags=["电�
 api_router.include_router(movie_scenes_router, prefix="/movie", tags=["电影-场景管理"])
 api_router.include_router(movie_shots_router, prefix="/movie", tags=["电影-分镜管理"])
 api_router.include_router(movie_transitions_router, prefix="/movie", tags=["电影-过渡视频"])
+api_router.include_router(generation_history_router, prefix="/movie", tags=["电影-生成历史"])
 
 __all__ = ["api_router"]
