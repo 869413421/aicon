@@ -436,9 +436,9 @@ const handleCheckMaterials = async () => {
     const missingTransitionVideos = transitions.filter(t => !t.video_url).length
     
     materialCheckResult.value = {
+      // 场景图不再是必需的，只要有角色头像、关键帧和过渡视频即可
       ready: missingCharacterAvatars === 0 && 
-             missingSceneImages === 0 && 
-             missingKeyframes === 0 && 
+             missingKeyframes === 0 &&
              missingTransitionVideos === 0,
       characters: {
         total: characters.length,

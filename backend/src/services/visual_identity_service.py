@@ -83,13 +83,13 @@ async def _generate_keyframe_worker(
                 reference_images.append(previous_keyframe_url)
                 logger.info(f'[批量生成] 使用上一帧关键帧作为参考: {previous_keyframe_url}')
             else:
-                # 第一个分镜：使用场景图作为参考
+                # 第一个分镜：如果有场景图则使用，没有也可以生成
                 if scene.scene_image_url:
                     reference_images.append(scene.scene_image_url)
                     logger.info(f'[批量生成] 第一个分镜，使用场景图作为参考: {scene.scene_image_url}')
                 else:
-                    # 抛出异常
-                    raise ValueError(f"场景 {scene.id} 没有场景图，且没有上一帧关键帧")
+                    logger.info(f'[批量生成] 第一个分镜，没有场景图，仅使用提示词生成')
+
             
             # 然后添加角色参考图
             if shot.characters:
@@ -283,14 +283,9 @@ class VisualIdentityService(BaseService):
         stmt_chars = select(MovieCharacter).where(MovieCharacter.project_id == project_id)
         chars = (await self.db_session.execute(stmt_chars)).scalars().all()
 
-        # 3. 检查所有场景是否都有场景图
-        scenes_without_image = [scene for scene in script.scenes if not scene.scene_image_url]
-        if scenes_without_image:
-            scene_numbers = [scene.order_index for scene in scenes_without_image]
-            raise ValueError(
-                f"以下场景尚未生成场景图，请先生成场景图: {', '.join(map(str, scene_numbers))}"
-            )
-
+        # 3. 场景图检查已移除 - 关键帧生成不再强制要求场景图
+        # 如果有场景图会作为参考，没有也可以生成
+        
         # 4. 准备资源
         api_key_service = APIKeyService(self.db_session)
         api_key = await api_key_service.get_api_key_by_id(api_key_id, str(user_id))
@@ -530,13 +525,12 @@ class VisualIdentityService(BaseService):
             reference_images.append(previous_keyframe_url)
             logger.info(f'使用上一帧关键帧作为参考: {previous_keyframe_url}')
         else:
-            # 第一个分镜：使用场景图作为参考
+            # 第一个分镜：如果有场景图则使用，没有也可以生成
             if shot.scene.scene_image_url:
                 reference_images.append(shot.scene.scene_image_url)
                 logger.info(f'第一个分镜，使用场景图作为参考: {shot.scene.scene_image_url}')
             else:
-                # 不允许生成
-                raise ValueError(f'场景 {shot.scene.id} 没有场景图，且没有上一帧关键帧，建议先生成场景图以保持场景一致性')
+                logger.info(f'第一个分镜，没有场景图，仅使用提示词生成')
         
         # 然后添加角色参考图
         if shot.characters:

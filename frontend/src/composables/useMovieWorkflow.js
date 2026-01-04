@@ -53,11 +53,9 @@ export function useMovieWorkflow() {
     })
 
     const canGenerateKeyframes = computed(() => {
-        // 检查是否所有场景都有场景图
-        const allScenesHaveImages = sceneWorkflow.script.value?.scenes?.every(s => s.scene_image_url) || false
+        // 场景图不再是必需的，有角色头像和分镜即可生成关键帧
         return shotWorkflow.allShots.value.length > 0 &&
-            characterWorkflow.characters.value.every(c => c.avatar_url) &&
-            allScenesHaveImages
+            characterWorkflow.characters.value.every(c => c.avatar_url)
     })
 
     const canCreateTransitions = computed(() => {
@@ -76,9 +74,8 @@ export function useMovieWorkflow() {
             currentStep.value = 1 // Scenes
         } else if (!shotWorkflow.allShots.value.length) {
             currentStep.value = 2 // Shots
-        } else if (!sceneWorkflow.script.value.scenes?.every(s => s.scene_image_url)) {
-            currentStep.value = 3 // Scene Images
         } else if (!shotWorkflow.allShots.value.every(s => s.keyframe_url)) {
+            // 跳过场景图检查，直接到关键帧
             currentStep.value = 4 // Keyframes
         } else if (!transitionWorkflow.transitions.value.length) {
             currentStep.value = 5 // Transitions
