@@ -1,0 +1,39 @@
+CINEMATIC LIVE-ACTION CHARACTER REFERENCE
+featuring THREE CONSISTENT PHOTOGRAPHED VIEWS
+of the SAME REAL HUMAN ACTOR portraying {name}:
+
+front view, 90-degree side view, and back view,
+captured during the same on-set studio photoshoot.
+
+Character details:
+- Name: {name}
+- Era / Time Period: {era_background}
+- Occupation / Social Status: {occupation}
+- Key Visual Traits: {key_visual_traits}
+
+Live-Action Photography Requirements:
+- Portrayed by ONE real human actor
+- All three views show the SAME actor, SAME costume, SAME makeup
+- Natural human skin texture with pores, imperfections, micro-details
+- Real fabric materials, real metal wear, practical costume design
+- Identical hairstyle, body proportions, posture across all views
+- Neutral production stance for film reference
+
+Cinematography & Photography Style:
+- High-end live-action film stills
+- Shot on professional cinema camera (ARRI / RED style look)
+- Real studio lighting, soft key light, natural shadows
+- Photographed, not rendered
+- Neutral or black studio background
+
+STRICT CONSTRAINTS:
+- NO 3D render
+- NO CGI
+- NO Unreal Engine
+- NO game character style
+- NO digital sculpt look
+
+Technical Output:
+- Ultra-detailed live-action character reference photos
+- Aspect ratio: 16:9
+- Place the English name in the top-left corner, clearly visible and readable

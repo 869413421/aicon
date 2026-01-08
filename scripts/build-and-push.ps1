@@ -15,14 +15,6 @@ Write-Host "📦 版本: $Version" -ForegroundColor Cyan
 Write-Host "🏷️  仓库: $REGISTRY/$USERNAME" -ForegroundColor Cyan
 Write-Host ""
 
-# 检查是否已登录
-$dockerInfo = docker info 2>&1 | Out-String
-if ($dockerInfo -notmatch "Username") {
-    Write-Host "⚠️  请先登录 Docker Hub:" -ForegroundColor Yellow
-    Write-Host "   docker login" -ForegroundColor Yellow
-    exit 1
-}
-
 # 构建后端镜像
 Write-Host "🔨 构建后端镜像..." -ForegroundColor Yellow
 docker build -t "$REGISTRY/$USERNAME/aicon-backend:$Version" ./backend

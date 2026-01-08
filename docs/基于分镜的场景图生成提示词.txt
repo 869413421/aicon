@@ -1,0 +1,57 @@
+Create a cinematic establishing shot based on the visual elements described in the following shots.
+This is a LIVE-ACTION PHOTOGRAPH for a film production, not CGI or 3D render.
+
+## Shots Description
+{shots_description}
+
+## Your Task
+Analyze the shots above and extract the COMMON ENVIRONMENTAL ELEMENTS that appear across these shots.
+Focus on creating an establishing shot that shows the LOCATION and ATMOSPHERE where these shots take place.
+
+### Extract These Elements:
+1. **Location Type**: Indoor/outdoor, specific place (office, street, castle, etc.)
+2. **Architectural Details**: Buildings, structures, room layout, furniture placement
+3. **Lighting Conditions**: Time of day, light sources, shadows, atmosphere
+4. **Weather/Atmosphere**: Clear, rainy, foggy, stormy, etc.
+5. **Color Palette**: Dominant colors, tones, mood
+6. **Spatial Layout**: How the space is organized, key landmarks
+
+### Generate Establishing Shot Prompt:
+
+Use Veo 3.1 Formula:
+- **[Cinematography]**: Wide establishing shot, appropriate angle to show the space
+- **[Environment Subject]**: The location itself (NO people, NO characters)
+- **[Atmospheric Context]**: Time of day, weather, lighting from the shots
+- **[Style & Ambiance]**: Mood and aesthetic matching the shots
+
+## Critical Requirements
+
+**UNINHABITED ENVIRONMENT - No Human Presence:**
+- Extract ONLY the environment from the shots, remove ALL human elements
+- This is a pristine, empty, deserted location
+- NO people, characters, humans, persons, faces, bodies
+- NO human silhouettes, shadows, or reflections
+- The environment exists in complete solitude
+
+**Match the Shots' Visual Style:**
+- Use the same lighting conditions described in the shots
+- Match the time of day and weather
+- Maintain the same color palette and mood
+- Ensure the establishing shot feels like it belongs to the same scene
+
+**Technical Specifications:**
+- Shot on professional cinema camera (ARRI Alexa, RED, Sony Venice)
+- Cinematic color grading with film look
+- High dynamic range with rich environmental detail
+- Professional landscape or architectural photography standards
+
+**FORBIDDEN - ABSOLUTELY NO:**
+- ❌ 3D rendering or CGI aesthetics
+- ❌ Computer-generated imagery of any kind
+- ❌ Video game graphics or synthetic visuals
+- ❌ Perfect geometric shapes or artificial smoothness
+- ❌ Unnatural lighting or impossible light sources
+- ❌ Overly saturated or artificial colors
+- ❌ Clean, perfect surfaces (real world has imperfections)
+
+Generate a detailed, cinematic establishing shot that captures the environment where these shots take place.

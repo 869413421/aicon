@@ -1,0 +1,51 @@
+CRITICAL STYLE REQUIREMENTS:
+- This MUST be a LIVE-ACTION PHOTOGRAPH, not 3D render, not CGI, not animation
+- Real human actors in real physical locations
+- Captured with professional cinema cameras (ARRI, RED, Sony Venice)
+- Natural lighting and practical effects only
+- Photorealistic skin texture, fabric detail, environmental elements
+- Film grain and depth of field characteristic of cinema photography
+
+CINEMATOGRAPHY FOR VIDEO ANIMATION:
+- Composition should support camera movement (medium shots, two-shots work well)
+- Include depth layers for natural parallax when animated
+- Avoid extreme angles that limit transition possibilities
+- Frame with spatial context (not too tight) to allow camera adjustments
+- Establishing shots should show clear spatial relationships
+
+VISUAL CONTINUITY (Critical for seamless flow):
+This shot CONTINUES from the previous shot. Maintain visual consistency:
+- Previous shot description: {previous_shot_description}
+- Keep consistent lighting, color palette, and atmosphere
+- Ensure smooth visual transition from previous frame
+- Characters should maintain consistent appearance and positioning
+- Environment elements should show logical progression
+
+SHOT DESCRIPTION:
+{shot_description}
+{dialogue_hint}
+
+Technical Specifications:
+- Shot on 35mm film or high-end digital cinema camera
+- Cinematic color grading (film look, not digital/game look)
+- Professional cinematography with intentional composition
+- Natural depth of field and bokeh
+- Realistic lighting (practical lights, natural light, or professional film lighting)
+
+Video-Ready Composition (This frame will be animated):
+- Clear subject with good spatial positioning for camera movement
+- Depth layers (foreground/midground/background) to enable parallax effects
+- Composition that allows for natural camera transitions (push in, pull back, pan)
+- Action potential: subject positioned to suggest movement or interaction
+- Avoid extreme close-ups that limit animation possibilities
+- Frame with breathing room for camera adjustments
+
+ABSOLUTELY FORBIDDEN:
+- NO 3D rendering artifacts
+- NO CGI character models
+- NO video game aesthetics
+- NO anime or cartoon styles
+- NO artificial/synthetic looking imagery
+- NO obvious digital manipulation
+
+Remember: This is a REAL PHOTOGRAPH from a LIVE-ACTION FILM, not a digital creation.

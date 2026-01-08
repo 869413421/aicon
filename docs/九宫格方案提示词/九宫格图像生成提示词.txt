@@ -1,0 +1,175 @@
+CINEMATIC STORYBOARD: 3x3 Grid Layout
+A professional film storyboard featuring 9 sequential shots arranged in a 3x3 grid format.
+
+---
+
+## CRITICAL LAYOUT REQUIREMENTS
+
+**Grid Structure:**
+- Exactly 9 panels arranged in 3 rows × 3 columns
+- Clear black borders separating each panel (2-3 pixel width)
+- Equal-sized rectangular panels with consistent spacing
+- Reading order: left-to-right, top-to-bottom
+- Each panel clearly numbered (1-9) in top-left corner
+
+**Panel Numbering:**
+```
+[1] [2] [3]
+[4] [5] [6]
+[7] [8] [9]
+```
+
+---
+
+## VISUAL CONTINUITY REQUIREMENTS
+
+**Unified Visual Style Across All 9 Panels:**
+- {visual_continuity_theme}
+- Consistent lighting: {unified_lighting}
+- Consistent color palette: {unified_color_palette}
+- Consistent time of day: {time_of_day}
+- Consistent weather conditions: {weather}
+
+**Character Consistency:**
+- Same actors portraying the same characters across all panels
+- Identical costumes, hairstyles, makeup throughout
+- Consistent body proportions and facial features
+- Natural aging/damage progression if story requires it
+
+---
+
+## INDIVIDUAL PANEL DESCRIPTIONS
+
+### Panel 1 (Top-Left) - {grid_position_1}
+**Shot Description:** {shot_description_1}
+**Camera Work:** {camera_work_1}
+**Lighting:** {lighting_1}
+**Characters:** {characters_1}
+**Dialogue:** {dialogue_1}
+
+### Panel 2 (Top-Center) - {grid_position_2}
+**Shot Description:** {shot_description_2}
+**Camera Work:** {camera_work_2}
+**Lighting:** {lighting_2}
+**Characters:** {characters_2}
+**Dialogue:** {dialogue_2}
+
+### Panel 3 (Top-Right) - {grid_position_3}
+**Shot Description:** {shot_description_3}
+**Camera Work:** {camera_work_3}
+**Lighting:** {lighting_3}
+**Characters:** {characters_3}
+**Dialogue:** {dialogue_3}
+
+### Panel 4 (Middle-Left) - {grid_position_4}
+**Shot Description:** {shot_description_4}
+**Camera Work:** {camera_work_4}
+**Lighting:** {lighting_4}
+**Characters:** {characters_4}
+**Dialogue:** {dialogue_4}
+
+### Panel 5 (Middle-Center) - {grid_position_5}
+**Shot Description:** {shot_description_5}
+**Camera Work:** {camera_work_5}
+**Lighting:** {lighting_5}
+**Characters:** {characters_5}
+**Dialogue:** {dialogue_5}
+
+### Panel 6 (Middle-Right) - {grid_position_6}
+**Shot Description:** {shot_description_6}
+**Camera Work:** {camera_work_6}
+**Lighting:** {lighting_6}
+**Characters:** {characters_6}
+**Dialogue:** {dialogue_6}
+
+### Panel 7 (Bottom-Left) - {grid_position_7}
+**Shot Description:** {shot_description_7}
+**Camera Work:** {camera_work_7}
+**Lighting:** {lighting_7}
+**Characters:** {characters_7}
+**Dialogue:** {dialogue_7}
+
+### Panel 8 (Bottom-Center) - {grid_position_8}
+**Shot Description:** {shot_description_8}
+**Camera Work:** {camera_work_8}
+**Lighting:** {lighting_8}
+**Characters:** {characters_8}
+**Dialogue:** {dialogue_8}
+
+### Panel 9 (Bottom-Right) - {grid_position_9}
+**Shot Description:** {shot_description_9}
+**Camera Work:** {camera_work_9}
+**Lighting:** {lighting_9}
+**Characters:** {characters_9}
+**Dialogue:** {dialogue_9}
+
+---
+
+## TECHNICAL SPECIFICATIONS
+
+**Image Quality:**
+- Resolution: 3840 × 2160 pixels (4K UHD)
+- Each panel resolution: 1280 × 720 pixels
+- Aspect ratio: 16:9 (overall and per panel)
+- Color depth: 24-bit RGB
+- Format: High-quality JPEG or PNG
+
+**Photography Style:**
+- LIVE-ACTION PHOTOGRAPH, not CGI, not 3D render, not animation
+- Real human actors in real physical locations
+- Shot on professional cinema cameras (ARRI Alexa, RED, Sony Venice)
+- Natural lighting and practical effects
+- Photorealistic skin texture, fabric detail, environmental elements
+- Film grain and depth of field characteristic of cinema photography
+
+**Storyboard Aesthetic:**
+- Professional film production storyboard quality
+- Clear, readable composition in each panel
+- Cinematic framing and composition
+- Consistent visual language across all panels
+- Natural sequential flow from panel to panel
+
+---
+
+## ABSOLUTELY FORBIDDEN
+
+**Layout Violations:**
+- ❌ More or fewer than 9 panels
+- ❌ Irregular panel sizes or spacing
+- ❌ Missing or unclear panel borders
+- ❌ Panels not in 3×3 grid arrangement
+- ❌ Missing panel numbers
+
+**Visual Style Violations:**
+- ❌ 3D rendering or CGI aesthetics
+- ❌ Video game graphics or synthetic visuals
+- ❌ Anime or cartoon styles
+- ❌ Inconsistent lighting across panels
+- ❌ Character appearance changes between panels
+- ❌ Drastic color palette shifts between panels
+
+**Content Violations:**
+- ❌ Creating new characters not in the character list
+- ❌ Changing character names or appearances
+- ❌ Abstract or symbolic imagery (must be literal/realistic)
+- ❌ Text overlays except panel numbers
+
+---
+
+## QUALITY ASSURANCE KEYWORDS
+
+Include these keywords to ensure proper generation:
+- "professional film storyboard"
+- "3x3 grid layout"
+- "9 sequential panels"
+- "clear panel borders"
+- "consistent visual style"
+- "live-action photography"
+- "cinematic composition"
+- "4K resolution"
+- "numbered panels"
+- "sequential narrative flow"
+
+---
+
+**Generate a professional 4K film storyboard with exactly 9 panels in a 3×3 grid, showing the sequential progression of this scene with perfect visual continuity.**
