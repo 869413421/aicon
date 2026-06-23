@@ -5,6 +5,7 @@ from .deepseek_provider import DeepSeekProvider
 from .volcengine_provider import VolcengineProvider
 from .siliconflow_provider import SiliconFlowProvider
 from .custom_provider import CustomProvider
+from .atlascloud_provider import AtlasCloudProvider
 from .base import BaseLLMProvider
 
 
@@ -23,6 +24,9 @@ class ProviderFactory:
                 return VolcengineProvider(api_key, kwargs.get("max_concurrency", 5))
             case "siliconflow":
                 return SiliconFlowProvider(api_key, kwargs.get("max_concurrency", 5))
+            case "atlascloud":
+                return AtlasCloudProvider(api_key, kwargs.get("max_concurrency", 5),
+                                          kwargs.get("base_url") or "https://api.atlascloud.ai/v1")
             case "custom":
                 return CustomProvider(api_key, kwargs.get("max_concurrency", 5),
                                       kwargs.get("base_url", "https://api.aiconapi.me/v1"))
