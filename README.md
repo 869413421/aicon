@@ -16,6 +16,53 @@ AICON 是一套面向 AI 内容创作的全栈工作台，覆盖从文本理解�
 
 > 说明：本人目前在广州地区求职中，具备丰富的 AI 应用开发经验，包括 Agent、RAG 等方向，欢迎相关技术岗位与合作机会交流。
 
+## Atlas Cloud（一套 OpenAI 兼容 API 跑通整条创作链路）
+
+<p align="center">
+  <a href="https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=ai-moive-studio">
+    <img src="docs/media/atlas-cloud-logo.png" alt="Atlas Cloud" width="200">
+  </a>
+</p>
+
+> 🎁 **[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=ai-moive-studio)** 是一个全模态 AI 推理平台，用一套 OpenAI 兼容 API 同时覆盖 AICON「剧本拆解 → 分镜提示词 → 图片 → 配音/视频」的整条创作链路：LLM（DeepSeek、Qwen、GLM、Kimi、MiniMax…）做文本理解与提示词组织，图像/视频生成（Seedream、Seedance、Kling、Wan、Nano Banana…）做关键帧与过渡视频，连一次即可，无需逐家厂商分别对接。
+>
+> 💡 LLM 预算友好：[coding plan](https://www.atlascloud.ai/console/coding-plan) · 全量模型：[atlascloud.ai/models](https://www.atlascloud.ai/models)
+
+在 AICON 里使用：「API 密钥管理」中新增一个密钥，**服务提供商选 `Atlas Cloud`**，填入你的 Atlas API Key 即可（默认 `base_url` 已指向 `https://api.atlascloud.ai/v1`）。代码层对应内置的 `atlascloud` provider（OpenAI 兼容透传）。
+
+```env
+# Atlas Cloud（OpenAI 兼容）—— 仅作配置示例，API Key 在 AICON 界面里填，不要硬编码
+ATLASCLOUD_API_BASE=https://api.atlascloud.ai/v1
+ATLASCLOUD_API_KEY=<your-atlascloud-api-key>
+# LLM 默认（带推理，调用时给足 max_tokens >= 512）
+ATLASCLOUD_LLM_MODEL=deepseek-ai/deepseek-v4-pro
+# 图像默认
+ATLASCLOUD_IMAGE_MODEL=openai/gpt-image-2/text-to-image
+# 视频默认
+ATLASCLOUD_VIDEO_MODEL=bytedance/seedance-2.0/text-to-video
+```
+
+`deepseek-ai/deepseek-v4-pro` 是带推理（reasoning）的模型，调用时请给足 `max_tokens`（建议 >= 512），否则 token 可能先耗在思维链上，出现 `finish_reason=length` 且 `content` 为空。
+
+<details>
+<summary>Atlas Cloud 全部对话模型（59 个，与官网 /zh/models/list/llm 一致）</summary>
+
+- Anthropic (Claude)：`anthropic/claude-haiku-4.5-20251001`, `anthropic/claude-opus-4.8`, `anthropic/claude-sonnet-4.6`
+- OpenAI (GPT)：`openai/gpt-5.4`, `openai/gpt-5.5`
+- Google (Gemini)：`google/gemini-3.1-flash-lite`, `google/gemini-3.1-pro-preview`, `google/gemini-3.5-flash`
+- 阿里 Qwen：`qwen/qwen2.5-7b-instruct`, `Qwen/Qwen3-235B-A22B-Instruct-2507`, `qwen/qwen3-235b-a22b-thinking-2507`, `qwen/qwen3-30b-a3b`, `Qwen/Qwen3-30B-A3B-Instruct-2507`, `qwen/qwen3-30b-a3b-thinking-2507`, `qwen/qwen3-32b`, `qwen/qwen3-8b`, `Qwen/Qwen3-Coder`, `qwen/qwen3-coder-next`, `qwen/qwen3-max-2026-01-23`, `Qwen/Qwen3-Next-80B-A3B-Instruct`, `Qwen/Qwen3-Next-80B-A3B-Thinking`, `Qwen/Qwen3-VL-235B-A22B-Instruct`, `qwen/qwen3-vl-235b-a22b-thinking`, `qwen/qwen3-vl-30b-a3b-instruct`, `qwen/qwen3-vl-30b-a3b-thinking`, `qwen/qwen3-vl-8b-instruct`, `qwen/qwen3.5-122b-a10b`, `qwen/qwen3.5-27b`, `qwen/qwen3.5-35b-a3b`, `qwen/qwen3.5-397b-a17b`, `qwen/qwen3.6-35b-a3b`, `qwen/qwen3.6-plus`
+- DeepSeek：`deepseek-ai/deepseek-ocr`, `deepseek-ai/deepseek-r1-0528`, `deepseek-ai/DeepSeek-V3-0324`, `deepseek-ai/DeepSeek-V3.1`, `deepseek-ai/DeepSeek-V3.1-Terminus`, `deepseek-ai/deepseek-v3.2`, `deepseek-ai/DeepSeek-V3.2-Exp`, `deepseek-ai/deepseek-v4-flash`, `deepseek-ai/deepseek-v4-pro`
+- Moonshot (Kimi)：`moonshotai/Kimi-K2-Instruct`, `moonshotai/Kimi-K2-Instruct-0905`, `moonshotai/Kimi-K2-Thinking`, `moonshotai/kimi-k2.5`, `moonshotai/kimi-k2.6`
+- 智谱 GLM：`zai-org/GLM-4.6`, `zai-org/glm-4.7`, `zai-org/glm-5`, `zai-org/glm-5-turbo`, `zai-org/glm-5.1`, `zai-org/glm-5v-turbo`
+- MiniMax：`MiniMaxAI/MiniMax-M2`, `minimaxai/minimax-m2.1`, `minimaxai/minimax-m2.5`, `minimaxai/minimax-m2.7`
+- xAI：`xai/grok-4.3`
+- 快手 KAT：`kwaipilot/kat-coder-pro-v2`
+- 其他：`owl`
+
+图像 / 视频默认模型：文生图 `openai/gpt-image-2/text-to-image`、文生视频 `bytedance/seedance-2.0/text-to-video`，完整清单见 [atlascloud.ai/models](https://www.atlascloud.ai/models)。
+
+</details>
+
 ## 目录
 
 - [项目概览](#项目概览)

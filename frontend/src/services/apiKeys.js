@@ -103,7 +103,8 @@ export const apiKeyUtils = {
             'alibaba': '阿里云',
             'volcengine': '火山引擎',
             'custom': '自定义',
-            'siliconflow': 'SiliconFlow'
+            'siliconflow': 'SiliconFlow',
+            'atlascloud': 'Atlas Cloud'
         }
         return providerMap[provider] || provider
     },
@@ -196,6 +197,7 @@ export const apiKeyUtils = {
             // { label: '火山引擎', value: 'volcengine' },
             // { label: 'deepseek', value: 'deepseek' },
             { label: '硅基流动', value: 'siliconflow' },
+            { label: 'Atlas Cloud', value: 'atlascloud' },
             { label: '自定义', value: 'custom' }
         ]
     },
