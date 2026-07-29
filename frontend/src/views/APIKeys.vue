@@ -132,6 +132,7 @@
             placeholder="请选择服务提供商"
             :disabled="isEdit"
             style="width: 100%"
+            @change="handleProviderChange"
           >
             <el-option
               v-for="provider in apiKeyUtils.getProviderOptions()"
@@ -263,6 +264,10 @@ const showAddDialog = () => {
   if (formRef.value) {
     formRef.value.clearValidate()
   }
+}
+
+const handleProviderChange = (provider) => {
+  formData.base_url = apiKeyUtils.getProviderDefaultBaseUrl(provider)
 }
 
 // 显示编辑对话框
