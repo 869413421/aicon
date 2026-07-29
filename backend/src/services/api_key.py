@@ -364,6 +364,10 @@ class APIKeyService(BaseService):
             if model_type == "text":
                 return ['deepseek-chat', 'deepseek-reasoner']
 
+        elif provider == 'atlascloud':
+            if model_type == "text":
+                return ['deepseek-ai/deepseek-v4-pro']
+
         elif provider == 'google':
             if model_type == "text":
                 return ['gemini-1.5-pro', 'gemini-1.5-flash']
